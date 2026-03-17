@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stereo_matching"
+version = "0.1.0"
+authors = [
+    { name = "shriarul5273" },
+]
+description = "A Transformers-style Python library for stereo depth estimation — inference, evaluation, and fine-tuning"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+]
+keywords = ["stereo-matching", "disparity-estimation", "depth-estimation", "computer-vision", "deep-learning", "pytorch"]
+dependencies = [
+    "torch>=2.9.0",
+    "torchvision>=0.15",
+    "Pillow>=9.0",
+    "numpy>=1.24",
+    "matplotlib>=3.6",
+    "opencv-python>=4.8",
+    "huggingface-hub>=0.16",
+    "einops>=0.6",
+    "timm>=0.9.1",
+    "opt-einsum>=3.3",
+    "tqdm",
+]
+
+[project.urls]
+Homepage = "https://github.com/shriarul5273/stereo_matching"
+Repository = "https://github.com/shriarul5273/stereo_matching"
+Issues = "https://github.com/shriarul5273/stereo_matching/issues"
+
+[project.optional-dependencies]
+data = [
+    "h5py",
+    "tqdm",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+]
+
+[project.scripts]
+stereo-estimate = "stereo_matching.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

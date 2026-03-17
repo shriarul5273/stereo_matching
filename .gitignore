@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Distribution / packaging
+*.whl
+*.tar.gz
+MANIFEST
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Type checking
+.mypy_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Model checkpoints
+*.pth
+*.pt
+*.ckpt
+*.bin
+*.safetensors
+
+# HuggingFace Hub cache
+.cache/
+
+# Demo outputs
+examples/output/
+
+# Dataset downloads
+data/
+/third_party
