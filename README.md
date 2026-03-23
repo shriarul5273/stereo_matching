@@ -110,6 +110,9 @@ python examples/demo.py
 | `raft-stereo-eth3d` | eth3d | SceneFlow + ETH3D | `shriarul5273/RAFT-Stereo` |
 | `raft-stereo-realtime` | realtime | SceneFlow | `shriarul5273/RAFT-Stereo` |
 | `crestereo` | standard | ETH3D fine-tuned | `shriarul5273/CRE-Stereo` |
+| `aanet` | kitti15 | KITTI 2015 | `datasets/shriarul5273/AANet` |
+| `aanet-kitti2012` | kitti12 | KITTI 2012 | `datasets/shriarul5273/AANet` |
+| `aanet-sceneflow` | sceneflow | Scene Flow | `datasets/shriarul5273/AANet` |
 
 See [docs/models.md](docs/models.md) for full details and citations.
 
@@ -125,6 +128,39 @@ See [docs/models.md](docs/models.md) for full details and citations.
 | `depth` | `np.ndarray (H,W) float32` or `None` | Metric depth in metres |
 | `colored_disparity` | `np.ndarray (H,W,3) uint8` or `None` | RGB visualization |
 | `metadata` | `dict` | Optional extras |
+
+---
+
+## 3D Visualization
+
+```python
+from stereo_matching import pipeline, viz
+import numpy as np
+from PIL import Image
+
+pipe   = pipeline("stereo-matching", model="raft-stereo")
+result = pipe("left.png", "right.png", focal_length=721.5, baseline=0.54)
+left_img = np.array(Image.open("left.png"))
+
+# Interactive open3d window (pip install stereo_matching[viz])
+viz.point_cloud(result, image=left_img, focal_length=721.5, baseline=0.54)
+
+# Matplotlib fallback — no open3d needed
+viz.point_cloud(result, image=left_img, focal_length=721.5, baseline=0.54,
+                backend="matplotlib")
+
+# Export as PLY (CloudCompare, MeshLab, open3d) — no extra deps
+viz.point_cloud(result, image=left_img, focal_length=721.5, baseline=0.54,
+                save_ply="scene.ply")
+
+# Export as GLB / glTF 2.0 (Blender, three.js, <model-viewer>) — no extra deps
+viz.point_cloud(result, image=left_img, focal_length=721.5, baseline=0.54,
+                save_glb="scene.glb")
+
+# Both formats at once
+viz.point_cloud(result, image=left_img, focal_length=721.5, baseline=0.54,
+                save_ply="scene.ply", save_glb="scene.glb")
+```
 
 ---
 

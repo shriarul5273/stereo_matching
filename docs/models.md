@@ -123,6 +123,75 @@ model = CREStereoModel.from_pretrained(
 
 ---
 
+## AANet
+
+Adaptive Aggregation Network — ResNet-40 feature extractor with multi-scale
+adaptive cost aggregation using deformable convolutions, and StereoDRNet
+hierarchical refinement.  Deformable convolutions are implemented via
+`torchvision.ops.deform_conv2d` for portability.
+
+**Paper:** [AANet: Adaptive Aggregation Network for Efficient Stereo Matching](https://arxiv.org/abs/2004.09548)
+**Authors:** Haofei Xu, Juyong Zhang (2020)
+
+### Variants
+
+| Variant ID | `variant` key | Training data | KITTI D1-all |
+|---|---|---|---|
+| `aanet` | `kitti15` | KITTI 2015 fine-tuned | 2.55 % |
+| `aanet-kitti2012` | `kitti12` | KITTI 2012 fine-tuned | 2.42 % (out-all) |
+| `aanet-sceneflow` | `sceneflow` | Scene Flow | EPE 0.87 |
+
+Checkpoints: downloaded from the Hugging Face dataset repo `shriarul5273/AANet`.
+
+Architecture parameters (all variants share the same default):
+`max_disp=192`, `num_scales=3`, `num_fusions=6`, `num_deform_blocks=3`,
+`deformable_groups=2`, `mdconv_dilation=2`, `refinement=stereodrnet`.
+
+### Configuration (`AANetConfig`)
+
+```python
+from stereo_matching.models.aanet import AANetConfig
+
+config = AANetConfig(
+    variant="kitti15",      # "kitti15", "kitti12", or "sceneflow"
+    max_disp=192,
+    num_scales=3,
+    num_fusions=6,
+    num_stage_blocks=1,
+    num_deform_blocks=3,
+    deformable_groups=2,
+    mdconv_dilation=2,
+)
+```
+
+### Loading
+
+```python
+from stereo_matching.models.aanet import AANetModel
+
+# From HuggingFace Hub (auto-download)
+model = AANetModel.from_pretrained("aanet", device="cuda")
+
+# From a local checkpoint
+model = AANetModel.from_pretrained(
+    "/path/to/aanet_kitti15.pth",
+    variant="kitti15",
+    device="cuda",
+)
+```
+
+### Inference / CLI / Training support
+
+| Model | Inference | CLI | Trainable |
+|---|---|---|---|
+| `aanet` | ✓ | ✓ | ✓ |
+| `aanet-kitti2012` | ✓ | ✓ | ✓ |
+| `aanet-sceneflow` | ✓ | ✓ | ✓ |
+
+> **Note:** AANet requires `torchvision` for its deformable convolution layers.
+
+---
+
 ## Registering a new model
 
 See [adding_a_model.md](adding_a_model.md) for the step-by-step guide.
@@ -144,5 +213,12 @@ See [adding_a_model.md](adding_a_model.md) for the step-by-step guide.
   author    = {Li, Jiankun and Wang, Peisen and Xiong, Pengfei and Cai, Tao and Yan, Ziwei and Yang, Lei and Liu, Jiangyu and Fan, Haoqiang and Liu, Shuaicheng},
   booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
   year      = {2022}
+}
+
+@inproceedings{xu2020aanet,
+  title     = {AANet: Adaptive Aggregation Network for Efficient Stereo Matching},
+  author    = {Xu, Haofei and Zhang, Juyong},
+  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2020}
 }
 ```

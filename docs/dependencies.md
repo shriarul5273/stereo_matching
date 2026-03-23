@@ -15,7 +15,6 @@ These are installed automatically with `pip install stereo_matching`.
 | `huggingface-hub` | ≥ 0.16 | Checkpoint download from HF Hub |
 | `einops` | ≥ 0.6 | Tensor rearrangement (RAFT feature extractor) |
 | `timm` | ≥ 0.9.1 | Vision backbone building blocks |
-| `opt-einsum` | ≥ 3.3 | Optimized einsum (RAFT-Stereo update block) |
 | `tqdm` | any | Progress bars |
 
 ---

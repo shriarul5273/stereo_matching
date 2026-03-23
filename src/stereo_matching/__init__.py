@@ -16,6 +16,7 @@ from .models.auto import AutoStereoModel, AutoProcessor
 # These are torch-free — modeling classes are loaded lazily on first use.
 from .models import raft_stereo
 from .models import crestereo
+from .models import aanet
 
 
 def load_dataset(name, split="train", root=None, download=True, transform=None, **kwargs):
@@ -65,9 +66,10 @@ def __getattr__(name):
         return DisparityLoss
     # Visualization (Phase 6)
     if name == "viz":
-        from . import viz
-        globals()["viz"] = viz
-        return viz
+        import importlib
+        _viz = importlib.import_module(".viz", __name__)
+        globals()["viz"] = _viz
+        return _viz
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

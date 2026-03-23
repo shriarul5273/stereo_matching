@@ -28,6 +28,9 @@ MODELS = [
     "raft-stereo-eth3d",
     "raft-stereo-realtime",
     "crestereo",
+    "aanet",
+    "aanet-kitti2012",
+    "aanet-sceneflow",
 ]
 # -----------------------------------------------------------------------
 

@@ -19,7 +19,6 @@ from typing import List, Optional, Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from opt_einsum import contract
 
 from ...modeling_utils import BaseStereoModel
 from .configuration_raft_stereo import (

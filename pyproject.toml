@@ -35,7 +35,6 @@ dependencies = [
     "huggingface-hub>=0.16",
     "einops>=0.6",
     "timm>=0.9.1",
-    "opt-einsum>=3.3",
     "tqdm",
 ]
 
@@ -48,6 +47,9 @@ Issues = "https://github.com/shriarul5273/stereo_matching/issues"
 data = [
     "h5py",
     "tqdm",
+]
+viz = [
+    "open3d>=0.17",
 ]
 dev = [
     "pytest>=7.0",
