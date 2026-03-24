@@ -17,6 +17,8 @@ from .models.auto import AutoStereoModel, AutoProcessor
 from .models import raft_stereo
 from .models import crestereo
 from .models import aanet
+from .models import foundation_stereo
+from .models import s2m2
 
 
 def load_dataset(name, split="train", root=None, download=True, transform=None, **kwargs):

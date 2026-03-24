@@ -23,14 +23,20 @@ DEVICE      = None   # None = auto-detect (cuda > mps > cpu)
 
 # All registered model variants to run
 MODELS = [
-    "raft-stereo",
-    "raft-stereo-middlebury",
-    "raft-stereo-eth3d",
-    "raft-stereo-realtime",
-    "crestereo",
-    "aanet",
-    "aanet-kitti2012",
-    "aanet-sceneflow",
+    # "raft-stereo",
+    # "raft-stereo-middlebury",
+    # "raft-stereo-eth3d",
+    # "raft-stereo-realtime",
+    # "crestereo",
+    # "aanet",
+    # "aanet-kitti2012",
+    # "aanet-sceneflow",
+    # "foundation-stereo",
+    # "foundation-stereo-large",
+    "s2m2",
+    "s2m2-m",
+    "s2m2-l",
+    "s2m2-xl",
 ]
 # -----------------------------------------------------------------------
 

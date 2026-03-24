@@ -192,6 +192,147 @@ model = AANetModel.from_pretrained(
 
 ---
 
+## FoundationStereo
+
+Zero-shot stereo matching using a foundation model backbone (DINOv2 / DepthAnything) combined with an EdgeNext feature extractor, 3D cost-volume aggregation, and a multi-level selective ConvGRU refinement stage.
+
+**Paper:** [FoundationStereo: Zero-Shot Stereo Matching](https://arxiv.org/abs/2501.09898)
+**Authors:** Bowen Wen, Matthew Trepte, Joseph Aribido, Jan Kautz, Orazio Gallo, Stan Birchfield (NVIDIA, 2025)
+
+> **Requires:** `third-party/FoundationStereo/` present in the repository (already included) plus `timm`, `huggingface_hub`, and `torchvision`.
+
+### Variants
+
+| Variant ID | `variant` key | ViT backbone | Notes |
+|---|---|---|---|
+| `foundation-stereo` | `standard` | ViT-S | Faster, lower memory |
+| `foundation-stereo-large` | `large` | ViT-L | Higher quality |
+
+Weights: [Google Drive](https://drive.google.com/drive/folders/1VhPebc_mMxWKccrv7pdQLTvXYVcLYpsf) · Folders: `11-33-40` (standard), `23-51-11` (large) · File: `model_best_bp2.pth`
+
+### Configuration (`FoundationStereoConfig`)
+
+```python
+from stereo_matching.models.foundation_stereo import FoundationStereoConfig
+
+config = FoundationStereoConfig(
+    variant="standard",          # "standard" or "large"
+    vit_size="vits",             # "vits", "vitb", or "vitl"
+    max_disp=192,                # maximum disparity
+    n_gru_layers=3,              # GRU refinement levels
+    corr_levels=2,               # geometry encoding pyramid levels
+    corr_radius=4,               # correlation search radius
+    n_downsample=2,              # feature encoder downsampling
+    hidden_dims=[128, 128, 128], # GRU hidden dims per level
+    mixed_precision=False,       # AMP
+    low_memory=False,            # reduce peak VRAM
+)
+```
+
+### Loading
+
+```python
+from stereo_matching.models.foundation_stereo import FoundationStereoModel
+
+# Auto-download via gdown (requires `pip install gdown`)
+# Weights are fetched from Google Drive on first call and cached at
+# ~/.cache/foundation_stereo/{11-33-40,23-51-11}/model_best_bp2.pth
+model = FoundationStereoModel.from_pretrained("foundation-stereo", device="cuda")
+model = FoundationStereoModel.from_pretrained("foundation-stereo-large", device="cuda")
+
+# From a manually downloaded .pth checkpoint
+# Download from: https://drive.google.com/drive/folders/1VhPebc_mMxWKccrv7pdQLTvXYVcLYpsf
+model = FoundationStereoModel.from_pretrained(
+    "/path/to/11-33-40/model_best_bp2.pth",
+    variant="standard",
+    device="cuda",
+)
+model = FoundationStereoModel.from_pretrained(
+    "/path/to/23-51-11/model_best_bp2.pth",
+    variant="large",
+    device="cuda",
+)
+```
+
+### Inference / CLI / Training support
+
+| Model | Inference | CLI | Trainable |
+|---|---|---|---|
+| `foundation-stereo` | ✓ | ✓ | ✓ |
+| `foundation-stereo-large` | ✓ | ✓ | ✓ |
+
+---
+
+## S2M2
+
+Scalable Stereo Matching Model with Multi-Resolution Transformer (ICCV 2025).
+Uses a CNN feature pyramid, a stacked Multi-Resolution Transformer (MRT) with
+symmetric cross-attention, Optimal Transport–based initial disparity estimation,
+and iterative local/global ConvGRU refinement. Jointly estimates disparity,
+occlusion, and confidence.
+
+**Paper:** [S²M²: Scalable Stereo Matching Model for Reliable Depth Estimation](https://arxiv.org/abs/2507.13229)
+**Authors:** Junhong Min, Youngpil Jeon, Jimin Kim, Minyong Choi (ICCV 2025)
+**Hub:** `minimok/s2m2`
+
+### Variants
+
+| Variant ID | `variant` key | feature_channels | num_transformer | Checkpoint |
+|---|---|---|---|---|
+| `s2m2` | S | 128 | 1 | CH128NTR1.pth |
+| `s2m2-m` | M | 192 | 2 | CH192NTR2.pth |
+| `s2m2-l` | L | 256 | 3 | CH256NTR3.pth |
+| `s2m2-xl` | XL | 384 | 3 | CH384NTR3.pth |
+
+### Configuration (`S2M2Config`)
+
+```python
+from stereo_matching.models.s2m2 import S2M2Config
+
+config = S2M2Config(
+    variant="S",            # "S", "M", "L", or "XL"
+    feature_channels=128,   # set automatically by from_variant()
+    num_transformer=1,      # set automatically by from_variant()
+    dim_expansion=1,        # fixed for all variants
+    refine_iter=3,          # local refinement iterations
+)
+```
+
+### Loading
+
+```python
+from stereo_matching.models.s2m2 import S2M2Model
+
+# From HuggingFace Hub (auto-download)
+model = S2M2Model.from_pretrained("s2m2",    device="cuda")
+model = S2M2Model.from_pretrained("s2m2-m",  device="cuda")
+model = S2M2Model.from_pretrained("s2m2-l",  device="cuda")
+model = S2M2Model.from_pretrained("s2m2-xl", device="cuda")
+
+# From a local .pth checkpoint
+model = S2M2Model.from_pretrained(
+    "/path/to/CH128NTR1.pth",
+    variant="S",
+    device="cuda",
+)
+```
+
+### Inference / CLI / Training support
+
+| Model | Inference | CLI | Trainable |
+|---|---|---|---|
+| `s2m2` | ✓ | ✓ | ✓ |
+| `s2m2-m` | ✓ | ✓ | ✓ |
+| `s2m2-l` | ✓ | ✓ | ✓ |
+| `s2m2-xl` | ✓ | ✓ | ✓ |
+
+> S2M2's `forward()` returns a single-element `List[Tensor]` during training,
+> compatible with `SmoothL1StereoLoss` and `DisparityLoss`. Occlusion and
+> confidence outputs are available in the vendored `_S2M2` class but discarded
+> at the wrapper level.
+
+---
+
 ## Registering a new model
 
 See [adding_a_model.md](adding_a_model.md) for the step-by-step guide.
@@ -201,6 +342,20 @@ See [adding_a_model.md](adding_a_model.md) for the step-by-step guide.
 ## Citations
 
 ```bibtex
+@inproceedings{min2025s2m2,
+  title     = {{S\textsuperscript{2}M\textsuperscript{2}}: Scalable Stereo Matching Model for Reliable Depth Estimation},
+  author    = {Junhong Min and Youngpil Jeon and Jimin Kim and Minyong Choi},
+  booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
+  year      = {2025}
+}
+
+@inproceedings{wen2025foundationstereo,
+  title     = {FoundationStereo: Zero-Shot Stereo Matching},
+  author    = {Wen, Bowen and Trepte, Matthew and Aribido, Joseph and Kautz, Jan and Gallo, Orazio and Birchfield, Stan},
+  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2025}
+}
+
 @inproceedings{lipson2021raft,
   title     = {RAFT-Stereo: Multilevel Recurrent Field Transforms for Stereo Matching},
   author    = {Lipson, Lahav and Teed, Zachary and Deng, Jia},

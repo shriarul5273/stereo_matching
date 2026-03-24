@@ -113,6 +113,12 @@ python examples/demo.py
 | `aanet` | kitti15 | KITTI 2015 | `datasets/shriarul5273/AANet` |
 | `aanet-kitti2012` | kitti12 | KITTI 2012 | `datasets/shriarul5273/AANet` |
 | `aanet-sceneflow` | sceneflow | Scene Flow | `datasets/shriarul5273/AANet` |
+| `foundation-stereo` | standard | SceneFlow + mixed | `nvidia/FoundationStereo` |
+| `foundation-stereo-large` | large | SceneFlow + mixed | `nvidia/FoundationStereo` |
+| `s2m2` | S | Booster + mixed | `minimok/s2m2` |
+| `s2m2-m` | M | Booster + mixed | `minimok/s2m2` |
+| `s2m2-l` | L | Booster + mixed | `minimok/s2m2` |
+| `s2m2-xl` | XL | Booster + mixed | `minimok/s2m2` |
 
 See [docs/models.md](docs/models.md) for full details and citations.
 
