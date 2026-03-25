@@ -32,10 +32,10 @@ Initial release of `stereo_matching`.
 - Full PyTorch port vendored from `CREStereo-Pytorch`: AGCL, LoFTR-style linear attention, multi-scale cascaded RUM (1/16 → 1/8 → 1/4), separable ConvGRU, convex upsampling
 
 **CLI:**
-- `stereo-estimate predict` — single-pair inference with output file saving
-- `stereo-estimate list-models` — list all registered variants
-- `stereo-estimate info` — show model configuration
-- `stereo-estimate evaluate` — benchmark on standard datasets
+- `stereo-matching predict` — single-pair inference with output file saving
+- `stereo-matching list-models` — list all registered variants
+- `stereo-matching info` — show model configuration
+- `stereo-matching evaluate` — benchmark on standard datasets
 
 **Examples:**
 - `examples/demo.py` — runs all registered models on a stereo pair, saves colored disparity maps to `examples/output/<model>_disp.png`

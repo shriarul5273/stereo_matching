@@ -194,6 +194,6 @@ def pipeline(
     from .models.auto import AutoStereoModel, AutoProcessor
 
     loaded_model = AutoStereoModel.from_pretrained(model, device=device, **kwargs)
-    processor = AutoProcessor.from_pretrained(model)
+    processor = AutoProcessor.from_pretrained(model, **kwargs)
 
     return StereoPipeline(model=loaded_model, processor=processor, device=device)

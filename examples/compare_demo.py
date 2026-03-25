@@ -37,8 +37,6 @@ from gradio_sync3dcompare import Sync3DCompare
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ASSETS_DIR = REPO_ROOT / "assets"
 
-sys.path.insert(0, str(REPO_ROOT / "src"))
-
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
@@ -59,6 +57,22 @@ ALL_MODELS = [
     "aanet-sceneflow",
     "foundation-stereo",
     "foundation-stereo-large",
+    "unimatch",
+    "unimatch-mixdata",
+    "unimatch-sceneflow",
+    "unimatch-kitti15",
+    "unimatch-middlebury",
+    "igev-plusplus",
+    "igev-plusplus-kitti2012",
+    "igev-plusplus-kitti2015",
+    "igev-plusplus-middlebury",
+    "igev-plusplus-eth3d",
+    "igev-stereo",
+    "igev-stereo-sceneflow",
+    "igev-stereo-kitti2012",
+    "igev-stereo-kitti2015",
+    "igev-stereo-middlebury",
+    "igev-stereo-eth3d",
 ]
 
 COLORMAP = "turbo"
@@ -423,11 +437,13 @@ clouds side-by-side.
 """
         )
 
-        with gr.Accordion("ℹ️ FoundationStereo — weight download required", open=False):
+        with gr.Accordion("ℹ️ Model Weights Notes", open=False):
             gr.Markdown(
                 """
-`foundation-stereo` and `foundation-stereo-large` weights are **not** bundled and must be
-downloaded separately from Google Drive before use:
+`foundation-stereo` and `foundation-stereo-large` weights are **not**
+bundled and must be downloaded separately from Google Drive before use.
+
+`foundation-stereo` and `foundation-stereo-large` use a separate Google Drive source:
 
 **Google Drive:** https://drive.google.com/drive/folders/1VhPebc_mMxWKccrv7pdQLTvXYVcLYpsf
 
@@ -437,7 +453,26 @@ Download the relevant folder (`11-33-40` for standard, `23-51-11` for large) and
 - **Manual** — place the checkpoint at `~/.cache/foundation_stereo/<folder>/model_best_bp2.pth`,
   or load directly with `FoundationStereoModel.from_pretrained("/path/to/model_best_bp2.pth", variant="standard")`.
 
-All other models download automatically from HuggingFace Hub.
+`igev-stereo` now auto-downloads from Hugging Face:
+
+- Repo: `shriarul5273/IGEV-Stereo`
+- Files used by the registered variants:
+  `sceneflow/sceneflow.pth`, `kitti/kitti12.pth`, `kitti/kitti15.pth`,
+  `middlebury/middlebury.pth`, `eth3d/eth3d.pth`
+
+You can still override it by setting `IGEV_STEREO_CHECKPOINT=/path/to/sceneflow.pth`
+or by placing the checkpoint under one of the usual local cache paths.
+
+`igev-plusplus` and `igev-plusplus-kitti2015` now auto-download from Hugging Face:
+
+- Repo: `shriarul5273/IGEV-plusplus-Stereo`
+- Files used by the registered variants:
+  `sceneflow.pth`, `kitti2012.pth`, `kitti2015.pth`, `middlebury.pth`, `eth3d.pth`
+
+You can still override them with `IGEV_PLUSPLUS_CHECKPOINT=/path/to/sceneflow.pth`
+or `/path/to/kitti2015.pth`, or by placing the checkpoint under the usual local cache paths.
+
+The remaining models download automatically from HuggingFace Hub.
 """
             )
 

@@ -18,7 +18,10 @@ from .models import raft_stereo
 from .models import crestereo
 from .models import aanet
 from .models import foundation_stereo
+from .models import igev_stereo
+from .models import igev_plusplus
 from .models import s2m2
+from .models import unimatch
 
 
 def load_dataset(name, split="train", root=None, download=True, transform=None, **kwargs):

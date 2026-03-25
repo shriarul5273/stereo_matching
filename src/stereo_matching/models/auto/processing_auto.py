@@ -2,6 +2,7 @@
 AutoProcessor — Automatic processor resolution via the global registry.
 """
 
+import os
 from typing import Any
 
 from ...registry import MODEL_REGISTRY
@@ -34,16 +35,28 @@ class AutoProcessor:
         Returns:
             StereoProcessor configured with the correct model config.
         """
-        config_cls = MODEL_REGISTRY.get_config_cls(model_id)
+        config = kwargs.pop("config", None)
 
-        # Resolve variant → config via from_variant() if available
-        if hasattr(config_cls, "from_variant"):
-            try:
-                config = config_cls.from_variant(model_id)
-            except (ValueError, KeyError):
+        if config is None:
+            resolved_model_id = model_id
+            if os.path.isfile(model_id) or os.path.isdir(model_id):
+                resolved_model_id = kwargs.pop("variant", None) or kwargs.pop("model_type", None)
+                if resolved_model_id is None:
+                    raise ValueError(
+                        f"Cannot infer processor config from local checkpoint path '{model_id}'. "
+                        "Pass a registered variant or model_type, for example variant='igev-stereo'."
+                    )
+
+            config_cls = MODEL_REGISTRY.get_config_cls(resolved_model_id)
+
+            # Resolve variant → config via from_variant() if available
+            if hasattr(config_cls, "from_variant"):
+                try:
+                    config = config_cls.from_variant(resolved_model_id)
+                except (ValueError, KeyError):
+                    config = config_cls()
+            else:
                 config = config_cls()
-        else:
-            config = config_cls()
 
         from ...processing_utils import StereoProcessor
         return StereoProcessor.from_config(config)

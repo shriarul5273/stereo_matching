@@ -33,10 +33,25 @@ MODELS = [
     # "aanet-sceneflow",
     # "foundation-stereo",
     # "foundation-stereo-large",
-    "s2m2",
-    "s2m2-m",
-    "s2m2-l",
-    "s2m2-xl",
+    # "s2m2",
+    # "s2m2-m",
+    # "s2m2-l",
+    # "s2m2-xl",
+    # "unimatch",
+    # "unimatch-mixdata",
+    # "unimatch-sceneflow",
+    # "unimatch-kitti15",
+    # "unimatch-middlebury",
+    # "igev-plusplus",  # downloads from Hugging Face; local override via IGEV_PLUSPLUS_CHECKPOINT
+    # "igev-plusplus-kitti2012",
+    # "igev-plusplus-kitti2015",
+    # "igev-plusplus-middlebury",
+    # "igev-plusplus-eth3d",
+    # "igev-stereo",  # downloads from Hugging Face; local override via IGEV_STEREO_CHECKPOINT
+    # "igev-stereo-kitti2012",
+    # "igev-stereo-kitti2015",
+    # "igev-stereo-middlebury",
+    # "igev-stereo-eth3d",
 ]
 # -----------------------------------------------------------------------
 

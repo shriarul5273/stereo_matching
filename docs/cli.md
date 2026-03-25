@@ -1,6 +1,6 @@
 # CLI Reference
 
-The `stereo-estimate` command-line tool provides inference, model listing, and evaluation from the terminal.
+The `stereo-matching` command-line tool provides inference, model listing, and evaluation from the terminal.
 
 ---
 
@@ -10,7 +10,7 @@ The CLI is installed automatically with the package:
 
 ```bash
 pip install stereo_matching
-stereo-estimate --help
+stereo-matching --help
 ```
 
 ---
@@ -22,7 +22,7 @@ stereo-estimate --help
 Run disparity estimation on a stereo image pair.
 
 ```bash
-stereo-estimate predict \
+stereo-matching predict \
     --left  LEFT_IMAGE \
     --right RIGHT_IMAGE \
     (--model VARIANT_ID | --checkpoint PATH) \
@@ -60,27 +60,27 @@ stereo-estimate predict \
 | `disparity.png` | 16-bit PNG, value = disparity × 256 (KITTI convention) |
 | `disparity_color.png` | Colorized visualization (uint8 RGB) |
 | `side_by_side.png` | Left image next to colored disparity |
-| `depth_mm.png` | 16-bit PNG depth in millimetres (only if `--focal-length` + `--baseline` given) |
+| `depth.npy` | Float32 NumPy depth map in metres (only if `--focal-length` + `--baseline` given) |
 
 **Examples:**
 
 ```bash
 # HuggingFace Hub model
-stereo-estimate predict --left left.png --right right.png --model raft-stereo
+stereo-matching predict --left left.png --right right.png --model raft-stereo
 
 # CREStereo
-stereo-estimate predict --left left.png --right right.png --model crestereo
+stereo-matching predict --left left.png --right right.png --model crestereo
 
 # Local checkpoint
-stereo-estimate predict --left left.png --right right.png \
+stereo-matching predict --left left.png --right right.png \
     --checkpoint /path/to/raftstereo-sceneflow.pth --variant standard
 
 # With metric depth
-stereo-estimate predict --left left.png --right right.png --model raft-stereo \
+stereo-matching predict --left left.png --right right.png --model raft-stereo \
     --focal-length 721.5 --baseline 0.54
 
 # Faster inference, custom output dir
-stereo-estimate predict --left l.png --right r.png --model raft-stereo \
+stereo-matching predict --left l.png --right r.png --model raft-stereo \
     --iters 12 --output-dir results/
 ```
 
@@ -91,7 +91,7 @@ stereo-estimate predict --left l.png --right r.png --model raft-stereo \
 Print all registered model variant IDs.
 
 ```bash
-stereo-estimate list-models
+stereo-matching list-models
 ```
 
 Example output:
@@ -112,13 +112,13 @@ Registered stereo model variants:
 Show configuration details for a model variant.
 
 ```bash
-stereo-estimate info --model VARIANT_ID
+stereo-matching info --model VARIANT_ID
 ```
 
 Example:
 
 ```bash
-stereo-estimate info --model raft-stereo
+stereo-matching info --model raft-stereo
 ```
 
 Output:
@@ -142,7 +142,7 @@ Model: raft-stereo
 Evaluate a model on a benchmark dataset.
 
 ```bash
-stereo-estimate evaluate \
+stereo-matching evaluate \
     --model VARIANT_ID \
     --dataset DATASET \
     --data-root PATH \

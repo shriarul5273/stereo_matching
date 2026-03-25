@@ -57,7 +57,7 @@ dev = [
 ]
 
 [project.scripts]
-stereo-estimate = "stereo_matching.cli:main"
+stereo-matching = "stereo_matching.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

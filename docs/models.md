@@ -263,6 +263,134 @@ model = FoundationStereoModel.from_pretrained(
 
 ---
 
+## IGEV-Stereo
+
+Iterative Geometry Encoding Volume for Stereo Matching. Uses a MobileNetV2
+feature backbone, geometry encoding volume construction, and recurrent ConvGRU
+refinement.
+
+**Paper:** [Iterative Geometry Encoding Volume for Stereo Matching](https://arxiv.org/abs/2303.06615)
+**Authors:** Gangwei Xu, Xianqi Wang, Xiaohuan Ding, Xin Yang (CVPR 2023)
+
+> Registered variants auto-download from Hugging Face Hub repo `shriarul5273/IGEV-Stereo`.
+
+### Variants
+
+| Variant ID | `variant` key | Checkpoint | Notes |
+|---|---|---|---|
+| `igev-stereo` | `sceneflow` | `sceneflow/sceneflow.pth` | Default SceneFlow checkpoint |
+| `igev-stereo-sceneflow` | `sceneflow` | `sceneflow/sceneflow.pth` | Alias of `igev-stereo` |
+| `igev-stereo-kitti2012` | `kitti12` | `kitti/kitti12.pth` | KITTI 2012 fine-tuned |
+| `igev-stereo-kitti2015` | `kitti15` | `kitti/kitti15.pth` | KITTI 2015 fine-tuned |
+| `igev-stereo-middlebury` | `middlebury` | `middlebury/middlebury.pth` | Middlebury fine-tuned |
+| `igev-stereo-eth3d` | `eth3d` | `eth3d/eth3d.pth` | ETH3D fine-tuned |
+
+### Loading
+
+```python
+from stereo_matching.models.igev_stereo import IGEVStereoModel
+
+# From Hugging Face Hub (auto-download)
+model = IGEVStereoModel.from_pretrained("igev-stereo", device="cuda")
+model = IGEVStereoModel.from_pretrained("igev-stereo-kitti2015", device="cuda")
+model = IGEVStereoModel.from_pretrained("igev-stereo-middlebury", device="cuda")
+
+# From a local .pth checkpoint
+model = IGEVStereoModel.from_pretrained(
+    "/path/to/sceneflow.pth",
+    variant="sceneflow",
+    device="cuda",
+)
+```
+
+### Inference / CLI / Training support
+
+| Model | Inference | CLI | Trainable |
+|---|---|---|---|
+| `igev-stereo` | ✓ | ✓ | ✓ |
+| `igev-stereo-sceneflow` | ✓ | ✓ | ✓ |
+| `igev-stereo-kitti2012` | ✓ | ✓ | ✓ |
+| `igev-stereo-kitti2015` | ✓ | ✓ | ✓ |
+| `igev-stereo-middlebury` | ✓ | ✓ | ✓ |
+| `igev-stereo-eth3d` | ✓ | ✓ | ✓ |
+
+---
+
+## IGEV++
+
+Iterative Multi-range Geometry Encoding Volumes for Stereo Matching. Uses a
+MobileNetV2 feature backbone, three disparity-range geometry volumes
+(small / medium / large), selective feature fusion, and multi-level ConvGRU
+refinement.
+
+**Paper:** [IGEV++: Iterative Multi-range Geometry Encoding Volumes for Stereo Matching](https://arxiv.org/abs/2409.00638)
+**Authors:** Gangwei Xu, Xianqi Wang, Zhaoxing Zhang, Junda Cheng, Chunyuan Liao, Xin Yang (TPAMI 2025)
+
+> **Requires:** `third-party/IGEV-plusplus/` present in the repository. Registered variants auto-download from Hugging Face Hub repo `shriarul5273/IGEV-plusplus-Stereo`.
+
+### Variants
+
+| Variant ID | `variant` key | Checkpoint | Notes |
+|---|---|---|---|
+| `igev-plusplus` | `sceneflow` | `sceneflow.pth` | Default SceneFlow checkpoint |
+| `igev-plusplus-sceneflow` | `sceneflow` | `sceneflow.pth` | Alias of `igev-plusplus` |
+| `igev-plusplus-kitti2012` | `kitti2012` | `kitti2012.pth` | KITTI 2012 fine-tuned checkpoint |
+| `igev-plusplus-kitti2015` | `kitti2015` | `kitti2015.pth` | KITTI 2015 fine-tuned checkpoint |
+| `igev-plusplus-middlebury` | `middlebury` | `middlebury.pth` | Middlebury fine-tuned checkpoint |
+| `igev-plusplus-eth3d` | `eth3d` | `eth3d.pth` | ETH3D fine-tuned checkpoint |
+
+### Configuration (`IGEVPlusPlusConfig`)
+
+```python
+from stereo_matching.models.igev_plusplus import IGEVPlusPlusConfig
+
+config = IGEVPlusPlusConfig(
+    variant="sceneflow",       # "sceneflow", "kitti2012", "kitti2015", "middlebury", or "eth3d"
+    max_disp=768,
+    s_disp_range=48,
+    m_disp_range=96,
+    l_disp_range=192,
+    s_disp_interval=1,
+    m_disp_interval=2,
+    l_disp_interval=4,
+    n_gru_layers=3,
+    corr_radius=4,
+    precision_dtype="float32",
+)
+```
+
+### Loading
+
+```python
+from stereo_matching.models.igev_plusplus import IGEVPlusPlusModel
+
+# From Hugging Face Hub (auto-download)
+model = IGEVPlusPlusModel.from_pretrained("igev-plusplus", device="cuda")
+model = IGEVPlusPlusModel.from_pretrained("igev-plusplus-kitti2012", device="cuda")
+model = IGEVPlusPlusModel.from_pretrained("igev-plusplus-kitti2015", device="cuda")
+model = IGEVPlusPlusModel.from_pretrained("igev-plusplus-middlebury", device="cuda")
+
+# From a local .pth checkpoint
+model = IGEVPlusPlusModel.from_pretrained(
+    "/path/to/sceneflow.pth",
+    variant="sceneflow",
+    device="cuda",
+)
+```
+
+### Inference / CLI / Training support
+
+| Model | Inference | CLI | Trainable |
+|---|---|---|---|
+| `igev-plusplus` | ✓ | ✓ | ✓ |
+| `igev-plusplus-sceneflow` | ✓ | ✓ | ✓ |
+| `igev-plusplus-kitti2012` | ✓ | ✓ | ✓ |
+| `igev-plusplus-kitti2015` | ✓ | ✓ | ✓ |
+| `igev-plusplus-middlebury` | ✓ | ✓ | ✓ |
+| `igev-plusplus-eth3d` | ✓ | ✓ | ✓ |
+
+---
+
 ## S2M2
 
 Scalable Stereo Matching Model with Multi-Resolution Transformer (ICCV 2025).
@@ -353,6 +481,13 @@ See [adding_a_model.md](adding_a_model.md) for the step-by-step guide.
   title     = {FoundationStereo: Zero-Shot Stereo Matching},
   author    = {Wen, Bowen and Trepte, Matthew and Aribido, Joseph and Kautz, Jan and Gallo, Orazio and Birchfield, Stan},
   booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2025}
+}
+
+@article{xu2025igevplusplus,
+  title     = {IGEV++: Iterative Multi-range Geometry Encoding Volumes for Stereo Matching},
+  author    = {Xu, Gangwei and Wang, Xianqi and Zhang, Zhaoxing and Cheng, Junda and Liao, Chunyuan and Yang, Xin},
+  journal   = {IEEE Transactions on Pattern Analysis and Machine Intelligence},
   year      = {2025}
 }
 

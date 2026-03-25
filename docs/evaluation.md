@@ -95,7 +95,7 @@ results = compare(
 ## CLI evaluation
 
 ```bash
-stereo-estimate evaluate \
+stereo-matching evaluate \
     --model raft-stereo \
     --dataset kitti2015 \
     --data-root /data/kitti/kitti2015 \
@@ -111,7 +111,7 @@ See [cli.md](cli.md) for full argument reference.
 Pass `--output-dir` to the CLI (or `output_dir=` to `evaluate()`) to write per-sample disparity images alongside the error maps.
 
 ```bash
-stereo-estimate evaluate \
+stereo-matching evaluate \
     --model raft-stereo \
     --dataset kitti2015 \
     --data-root /data/kitti/kitti2015 \
