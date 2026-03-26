@@ -1,28 +1,21 @@
 # stereo_matching
 
-A Transformers-style Python library for stereo depth estimation — inference, evaluation, and fine-tuning.
+<p align="center">
+    <a href="https://github.com/shriarul5273/stereo_matching/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/shriarul5273/stereo_matching?color=blue"></a>
+    <a href="https://pypi.org/project/stereo-matching/"><img alt="PyPI" src="https://img.shields.io/pypi/v/stereo-matching"></a>
+    <a href="https://pypi.org/project/stereo-matching/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/stereo-matching"></a>
+    <a href="https://huggingface.co/spaces/shriarul5273/StereoMatching_Compare_Demo"><img alt="Demo" src="https://img.shields.io/badge/Gradio-Compare%20Demo-blue"></a>
+</p>
 
-```python
-from stereo_matching import pipeline
+<h3 align="center">A unified Python library for stereo depth estimation</h3>
 
-pipe = pipeline("stereo-matching", model="raft-stereo")
-result = pipe("left.png", "right.png")
-print(result.disparity.shape)          # (H, W) float32 — pixels
-print(result.colored_disparity.shape)  # (H, W, 3) uint8
-```
-
----
-
-## Features
-
-- **Unified API** — one `pipeline()` call works for every model
-- **Auto-class loading** — `AutoStereoModel`, `AutoProcessor` from any variant ID or local checkpoint
-- **Metric depth** — pass `focal_length` + `baseline` to get depth in metres
-- **Lazy torch import** — `import stereo_matching` does not import PyTorch
-- **HuggingFace Hub** — registered variants download automatically
-- **Modular** — add a new model in one file; the registry handles the rest
+<h3 align="center">Inference - CLI - 3D Visualization - Model Comparison</h3>
 
 ---
+
+`stereo_matching` provides a single, consistent API across **8 model families and 31 registered variant IDs**. You can swap RAFT-Stereo, CREStereo, AANet, FoundationStereo, IGEV-Stereo, IGEV++, S2M2, and UniMatch without rewriting your preprocessing or postprocessing code.
+
+It is built around the practical stereo workflow: run inference with one line, inspect models from the CLI, and turn calibrated disparity into depth maps and point clouds with the same library.
 
 ## Installation
 
@@ -30,169 +23,191 @@ print(result.colored_disparity.shape)  # (H, W, 3) uint8
 pip install stereo_matching
 ```
 
-**From source:**
-
-```bash
-git clone https://github.com/shriarul5273/stereo_matching
-cd stereo_matching
-pip install -e .
-```
-
-**Optional extras:**
-
-```bash
-pip install stereo_matching[data]   # h5py for dataset loading
-pip install stereo_matching[dev]    # pytest, pytest-cov
-```
+See [docs/dependencies.md](docs/dependencies.md) for optional extras such as `stereo_matching[viz]`.
 
 ---
 
-## Quick Start
+## Quickstart
 
-### Inference with `pipeline()`
+The `pipeline` API is the fastest way to run any registered stereo model:
 
 ```python
 from stereo_matching import pipeline
 
-# Load a registered variant (auto-downloads from HuggingFace Hub)
 pipe = pipeline("stereo-matching", model="raft-stereo")
-result = pipe("left.png", "right.png")
-
-# With metric depth (requires calibrated camera)
 result = pipe("left.png", "right.png", focal_length=721.5, baseline=0.54)
-print(result.depth)   # (H, W) float32 — metres
+
+disparity = result.disparity          # np.ndarray, float32, (H, W)
+depth_map = result.depth              # np.ndarray, float32, (H, W) or None
+colored   = result.colored_disparity  # np.ndarray, uint8,   (H, W, 3)
 ```
 
-### `AutoStereoModel` / `AutoProcessor`
+For full control over preprocessing, forward pass, and postprocessing, use Auto Classes:
 
 ```python
 from stereo_matching import AutoStereoModel, AutoProcessor
+import torch
 
-model     = AutoStereoModel.from_pretrained("raft-stereo", device="cuda")
-processor = AutoProcessor.from_pretrained("raft-stereo")
+model = AutoStereoModel.from_pretrained("igev-stereo", device="cuda")
+processor = AutoProcessor.from_pretrained("igev-stereo")
 
-inputs = processor(left_img, right_img)
-result = processor.postprocess(
-    model(inputs["left_values"].cuda(), inputs["right_values"].cuda()),
-    inputs["original_sizes"],
-    colorize=True, focal_length=721.5, baseline=0.54,
-)
+inputs = processor("left.png", "right.png")
+with torch.no_grad():
+    disparity = model(inputs["left_values"].cuda(), inputs["right_values"].cuda())
+result = processor.postprocess(disparity, inputs["original_sizes"], colorize=True)
 ```
 
-### Load from a local checkpoint
-
-```python
-from stereo_matching.models.raft_stereo import RaftStereoModel
-
-model = RaftStereoModel.from_pretrained(
-    "/path/to/raftstereo-sceneflow.pth",
-    variant="standard",
-    device="cuda",
-)
-```
-
-### Demo script
-
-Run all registered models and save colored disparity maps to `examples/output/`:
+Or from the command line:
 
 ```bash
-python examples/demo.py
+stereo-matching predict --left left.png --right right.png --model raft-stereo
 ```
+
+---
+
+## Why use stereo_matching?
+
+**1. One API, every model.**
+Switch from RAFT-Stereo to FoundationStereo or UniMatch by changing a single string. `pipeline()`, `AutoStereoModel`, and `AutoProcessor` keep the calling pattern consistent across families.
+
+**2. Consistent model loading.**
+Registered variants resolve through the same `pipeline()`, `AutoStereoModel`, and `AutoProcessor` entry points, so model selection stays simple even as the registry grows.
+
+**3. Self-contained model packages.**
+Each family lives under `src/stereo_matching/models/<family>/` with a config file, a single vendored modeling file, and lazy self-registration in the global registry.
+
+**4. Calibrated outputs beyond disparity.**
+Pass `focal_length` and `baseline` once and the library can return metric depth, colorized disparity, and point clouds for export or interactive viewing.
 
 ---
 
 ## Supported Models
 
-| Model ID | Variant | Training data | Hub |
-|---|---|---|---|
-| `raft-stereo` | standard | SceneFlow | `shriarul5273/RAFT-Stereo` |
-| `raft-stereo-middlebury` | middlebury | SceneFlow + Middlebury | `shriarul5273/RAFT-Stereo` |
-| `raft-stereo-eth3d` | eth3d | SceneFlow + ETH3D | `shriarul5273/RAFT-Stereo` |
-| `raft-stereo-realtime` | realtime | SceneFlow | `shriarul5273/RAFT-Stereo` |
-| `crestereo` | standard | ETH3D fine-tuned | `shriarul5273/CRE-Stereo` |
-| `aanet` | kitti15 | KITTI 2015 | `datasets/shriarul5273/AANet` |
-| `aanet-kitti2012` | kitti12 | KITTI 2012 | `datasets/shriarul5273/AANet` |
-| `aanet-sceneflow` | sceneflow | Scene Flow | `datasets/shriarul5273/AANet` |
-| `foundation-stereo` | standard | SceneFlow + mixed | `nvidia/FoundationStereo` |
-| `foundation-stereo-large` | large | SceneFlow + mixed | `nvidia/FoundationStereo` |
-| `s2m2` | S | Booster + mixed | `minimok/s2m2` |
-| `s2m2-m` | M | Booster + mixed | `minimok/s2m2` |
-| `s2m2-l` | L | Booster + mixed | `minimok/s2m2` |
-| `s2m2-xl` | XL | Booster + mixed | `minimok/s2m2` |
+8 model families - 31 registered IDs - see [docs/models.md](docs/models.md) for the full list and per-variant notes.
 
-See [docs/models.md](docs/models.md) for full details and citations.
+All families support `pipeline()`, Auto Classes, and CLI prediction.
+
+| Family | Variants |
+|---|---|
+| RAFT-Stereo | `raft-stereo`, `raft-stereo-middlebury`, `raft-stereo-eth3d`, `raft-stereo-realtime` |
+| CREStereo | `crestereo` |
+| AANet | `aanet`, `aanet-kitti2012`, `aanet-sceneflow` |
+| FoundationStereo | `foundation-stereo`, `foundation-stereo-large` |
+| IGEV-Stereo | 6 registered IDs (`igev-stereo*`) |
+| IGEV++ | 6 registered IDs (`igev-plusplus*`) |
+| S2M2 | `s2m2`, `s2m2-m`, `s2m2-l`, `s2m2-xl` |
+| UniMatch | 5 registered IDs (`unimatch*`) |
 
 ---
 
-## Output
+## What can you do?
 
-`StereoOutput` fields:
+<details>
+<summary><b>Inference</b> - single pair, batch, or local script</summary>
 
-| Field | Type | Description |
-|---|---|---|
-| `disparity` | `np.ndarray (H,W) float32` | Disparity in pixels |
-| `depth` | `np.ndarray (H,W) float32` or `None` | Metric depth in metres |
-| `colored_disparity` | `np.ndarray (H,W,3) uint8` or `None` | RGB visualization |
-| `metadata` | `dict` | Optional extras |
+```python
+# Single stereo pair
+result = pipe("left.png", "right.png")
 
----
+# Batch
+results = pipe(
+    ["left0.png", "left1.png"],
+    ["right0.png", "right1.png"],
+    batch_size=2,
+)
+```
 
-## 3D Visualization
+```bash
+# CLI prediction
+stereo-matching predict --left left.png --right right.png --model raft-stereo --output-dir results/
+
+# Run the packaged demo script across registered models
+python examples/demo.py
+```
+
+</details>
+
+<details>
+<summary><b>Auto Classes</b> - registry-based loading for registered variants</summary>
+
+```python
+from stereo_matching import AutoStereoModel, AutoProcessor
+
+model = AutoStereoModel.from_pretrained("foundation-stereo", device="cuda")
+processor = AutoProcessor.from_pretrained("foundation-stereo")
+```
+
+Use `stereo-matching list-models` to inspect the full registry and `stereo-matching info --model <id>` to print a model config from the terminal.
+
+</details>
+
+<details>
+<summary><b>3D Visualization</b> - point clouds, PLY, and GLB export</summary>
 
 ```python
 from stereo_matching import pipeline, viz
 import numpy as np
 from PIL import Image
 
-pipe   = pipeline("stereo-matching", model="raft-stereo")
+pipe = pipeline("stereo-matching", model="raft-stereo")
 result = pipe("left.png", "right.png", focal_length=721.5, baseline=0.54)
-left_img = np.array(Image.open("left.png"))
+left_rgb = np.array(Image.open("left.png").convert("RGB"))
 
-# Interactive open3d window (pip install stereo_matching[viz])
-viz.point_cloud(result, image=left_img, focal_length=721.5, baseline=0.54)
-
-# Matplotlib fallback — no open3d needed
-viz.point_cloud(result, image=left_img, focal_length=721.5, baseline=0.54,
-                backend="matplotlib")
-
-# Export as PLY (CloudCompare, MeshLab, open3d) — no extra deps
-viz.point_cloud(result, image=left_img, focal_length=721.5, baseline=0.54,
-                save_ply="scene.ply")
-
-# Export as GLB / glTF 2.0 (Blender, three.js, <model-viewer>) — no extra deps
-viz.point_cloud(result, image=left_img, focal_length=721.5, baseline=0.54,
-                save_glb="scene.glb")
-
-# Both formats at once
-viz.point_cloud(result, image=left_img, focal_length=721.5, baseline=0.54,
-                save_ply="scene.ply", save_glb="scene.glb")
+viz.point_cloud(
+    result,
+    image=left_rgb,
+    focal_length=721.5,
+    baseline=0.54,
+    save_ply="scene.ply",
+    save_glb="scene.glb",
+)
 ```
+
+Install `stereo_matching[viz]` for the optional `open3d` viewer path. See [docs/pipeline.md](docs/pipeline.md) for output details.
+
+</details>
+
+<details>
+<summary><b>Model Comparison Demo</b> - hosted Hugging Face Space and local Gradio app</summary>
+
+Hosted demo: [StereoMatching Compare Demo](https://huggingface.co/spaces/shriarul5273/StereoMatching_Compare_Demo)
+
+```bash
+pip install gradio gradio_sync3dcompare
+python examples/compare_demo.py
+```
+
+The demo runs two stereo models on the same pair and shows disparity and 3D outputs side-by-side in a synchronized viewer.
+
+</details>
 
 ---
 
 ## Documentation
 
-| Topic | Link |
-|---|---|
-| Models & variants | [docs/models.md](docs/models.md) |
-| Pipeline API | [docs/pipeline.md](docs/pipeline.md) |
-| CLI reference | [docs/cli.md](docs/cli.md) |
-| Training | [docs/training.md](docs/training.md) |
-| Evaluation | [docs/evaluation.md](docs/evaluation.md) |
-| Datasets | [docs/data.md](docs/data.md) |
-| Dependencies | [docs/dependencies.md](docs/dependencies.md) |
-| Adding a model | [docs/adding_a_model.md](docs/adding_a_model.md) |
-| Release notes | [docs/release_notes.md](docs/release_notes.md) |
+- [docs/models.md](docs/models.md) - families, variants, and checkpoint sources
+- [docs/pipeline.md](docs/pipeline.md) - `pipeline()`, `StereoOutput`, and processing details
+- [docs/cli.md](docs/cli.md) - `predict`, `list-models`, and `info`
+- [docs/dependencies.md](docs/dependencies.md) - optional extras and model-specific requirements
+- [docs/adding_a_model.md](docs/adding_a_model.md) - registry and package structure
 
 ---
 
-## Requirements
+## Adding a New Model
 
-- Python ≥ 3.9
-- PyTorch ≥ 2.0
-- See [docs/dependencies.md](docs/dependencies.md) for full list
+1. Create `src/stereo_matching/models/your_model/`
+2. Add `configuration_your_model.py`
+3. Add `modeling_your_model.py`
+4. Add `__init__.py` with `MODEL_REGISTRY.register(...)`
+5. Import the package in `src/stereo_matching/__init__.py`
+
+`AutoStereoModel`, `AutoProcessor`, and `pipeline()` resolve the new model automatically. See [docs/adding_a_model.md](docs/adding_a_model.md) for the full pattern.
 
 ---
+
+## Acknowledgments
+
+This library builds on the work of 8 stereo matching research families. See [docs/models.md#citations](docs/models.md#citations) for the citation block.
 
 ## License
 

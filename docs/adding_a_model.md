@@ -1,6 +1,6 @@
 # Adding a New Model
 
-This guide walks through adding a new stereo model to the `stereo_matching` library. The pattern mirrors `models/raft_stereo/` and `models/crestereo/` exactly.
+This guide walks through adding a new stereo model to the `stereo_matching` library. The pattern mirrors the existing packages under `src/stereo_matching/models/`.
 
 ---
 
@@ -10,7 +10,7 @@ Every model consists of three files inside `src/stereo_matching/models/<model_na
 
 | File | Purpose |
 |---|---|
-| `configuration_<name>.py` | Hyperparameters, variant map, Hub IDs |
+| `configuration_<name>.py` | Hyperparameters, variant map, and checkpoint metadata |
 | `modeling_<name>.py` | Architecture (vendored) + `BaseStereoModel` wrapper |
 | `__init__.py` | Self-registration + lazy export |
 
@@ -70,7 +70,9 @@ class MyModelConfig(BaseStereoConfig):
 **Rules:**
 - `model_type` must be unique — it is the registry key.
 - `from_variant(variant_id)` is called by `AutoProcessor` and `pipeline()`.
-- `hub_repo_id` + `checkpoint_filename` are used by `_load_pretrained_weights`.
+- Expose the metadata your loader needs, for example `hub_repo_id`, `checkpoint_filename`, `checkpoint_url`, or `gdrive_url`.
+
+Hugging Face is only one supported loading pattern. See `foundation_stereo` for Google Drive-backed weights and `unimatch` for direct checkpoint URLs.
 
 ---
 
@@ -233,6 +235,8 @@ Add one import (torch-free):
 ```python
 from .models import raft_stereo
 from .models import crestereo
+from .models import foundation_stereo
+# ...
 from .models import my_model   # ← add this line
 ```
 
@@ -279,7 +283,7 @@ print(out.shape)   # expect (1, H, W)
 
 - [ ] `model_type` is unique across all registered models
 - [ ] `from_variant(variant_id)` raises `ValueError` for unknown IDs
-- [ ] `hub_repo_id` + `checkpoint_filename` properties return correct values
+- [ ] Loader metadata/properties return correct values for your chosen download path
 - [ ] Internal classes are prefixed to avoid name collisions
 - [ ] `forward()` denorms `[0,1]` → `[0,255]` before calling vendored net
 - [ ] Training mode returns `List[Tensor(B,H,W)]`, inference mode returns `Tensor(B,H,W)`

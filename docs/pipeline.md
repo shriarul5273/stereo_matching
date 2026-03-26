@@ -15,10 +15,12 @@ pipe = pipeline(task, model=None, device=None, **kwargs)
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `task` | `str` | required | Must be `"stereo-matching"` |
-| `model` | `str` | `None` | Variant ID (e.g. `"raft-stereo"`) or local `.pth` path |
+| `model` | `str` | `None` | Registered variant ID (e.g. `"raft-stereo"`) or, for families that implement it, a local `.pth` path |
 | `device` | `str` or `None` | `None` | `"cuda"`, `"cpu"`, `"mps"`, or auto-detect |
 
 Returns a `StereoPipeline` instance.
+
+> For arbitrary local checkpoints, the most reliable workflow is to instantiate the concrete model class plus `StereoProcessor` / `StereoPipeline` directly. The high-level `pipeline()` factory shares one `kwargs` namespace between model and processor resolution.
 
 ---
 
@@ -151,6 +153,7 @@ print(result.depth)   # (H, W) float32, metres
 ### Override number of recurrent iterations
 
 ```python
+from stereo_matching import StereoPipeline
 from stereo_matching.models.raft_stereo import RaftStereoModel
 from stereo_matching.processing_utils import StereoProcessor
 
@@ -158,5 +161,5 @@ model = RaftStereoModel.from_pretrained("raft-stereo", device="cuda")
 model.config.num_iters = 12   # faster inference, slightly lower accuracy
 processor = StereoProcessor(model.config)
 
-pipe = pipeline("stereo-matching", model=model)
+pipe = StereoPipeline(model=model, processor=processor, device="cuda")
 ```

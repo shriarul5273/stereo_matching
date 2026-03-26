@@ -31,6 +31,10 @@ Initial release of `stereo_matching`.
 - Checkpoint downloaded from `shriarul5273/CRE-Stereo` on HuggingFace Hub
 - Full PyTorch port vendored from `CREStereo-Pytorch`: AGCL, LoFTR-style linear attention, multi-scale cascaded RUM (1/16 → 1/8 → 1/4), separable ConvGRU, convex upsampling
 
+**Current source tree note:**
+- Additional model families now live under `src/stereo_matching/models/`: `aanet`, `foundation-stereo`, `igev-stereo`, `igev-plusplus`, `s2m2`, and `unimatch`
+- See [models.md](models.md) for the up-to-date registry and loading behavior
+
 **CLI:**
 - `stereo-matching predict` — single-pair inference with output file saving
 - `stereo-matching list-models` — list all registered variants

@@ -2,6 +2,19 @@
 
 All model families, registered variant IDs, configuration options, and citations.
 
+The top-level package currently registers 8 model families and 31 variant IDs from `src/stereo_matching/models/`.
+
+| Family | Registered IDs | Weight source | Local `.pth` loading |
+|---|---|---|---|
+| RAFT-Stereo | 4 IDs (`raft-stereo*`) | Hugging Face model repo | ✓ |
+| CREStereo | 1 ID (`crestereo`) | Hugging Face model repo | ✓ |
+| AANet | 3 IDs (`aanet*`) | Hugging Face dataset repo | — |
+| FoundationStereo | 2 IDs (`foundation-stereo*`) | Google Drive or local file | ✓ |
+| IGEV-Stereo | 6 IDs (`igev-stereo*`) | Hugging Face model repo | ✓ |
+| IGEV++ | 6 IDs (`igev-plusplus*`) | Hugging Face model repo | ✓ |
+| S2M2 | 4 IDs (`s2m2*`) | Hugging Face model repo | ✓ |
+| UniMatch | 5 IDs (`unimatch*`) | Direct checkpoint URLs or local file | ✓ |
+
 ---
 
 ## RAFT-Stereo
@@ -169,15 +182,10 @@ config = AANetConfig(
 ```python
 from stereo_matching.models.aanet import AANetModel
 
-# From HuggingFace Hub (auto-download)
+# From the Hugging Face dataset repo (auto-download)
 model = AANetModel.from_pretrained("aanet", device="cuda")
-
-# From a local checkpoint
-model = AANetModel.from_pretrained(
-    "/path/to/aanet_kitti15.pth",
-    variant="kitti15",
-    device="cuda",
-)
+model = AANetModel.from_pretrained("aanet-kitti2012", device="cuda")
+model = AANetModel.from_pretrained("aanet-sceneflow", device="cuda")
 ```
 
 ### Inference / CLI / Training support
@@ -189,6 +197,8 @@ model = AANetModel.from_pretrained(
 | `aanet-sceneflow` | ✓ | ✓ | ✓ |
 
 > **Note:** AANet requires `torchvision` for its deformable convolution layers.
+>
+> The current `AANetModel.from_pretrained()` implementation resolves registered variant IDs and downloads the matching checkpoint from the Hugging Face dataset repo. Arbitrary local `.pth` paths are not handled by this loader.
 
 ---
 
@@ -199,7 +209,7 @@ Zero-shot stereo matching using a foundation model backbone (DINOv2 / DepthAnyth
 **Paper:** [FoundationStereo: Zero-Shot Stereo Matching](https://arxiv.org/abs/2501.09898)
 **Authors:** Bowen Wen, Matthew Trepte, Joseph Aribido, Jan Kautz, Orazio Gallo, Stan Birchfield (NVIDIA, 2025)
 
-> **Requires:** `third-party/FoundationStereo/` present in the repository (already included) plus `timm`, `huggingface_hub`, and `torchvision`.
+> The architecture is vendored into a single module. No runtime checkout of `third-party/FoundationStereo/` is required; only the original license file is kept there.
 
 ### Variants
 
@@ -234,13 +244,13 @@ config = FoundationStereoConfig(
 ```python
 from stereo_matching.models.foundation_stereo import FoundationStereoModel
 
-# Auto-download via gdown (requires `pip install gdown`)
-# Weights are fetched from Google Drive on first call and cached at
+# Auto-download via gdown if it is installed.
+# Weights are fetched from Google Drive on first use and cached at
 # ~/.cache/foundation_stereo/{11-33-40,23-51-11}/model_best_bp2.pth
 model = FoundationStereoModel.from_pretrained("foundation-stereo", device="cuda")
 model = FoundationStereoModel.from_pretrained("foundation-stereo-large", device="cuda")
 
-# From a manually downloaded .pth checkpoint
+# If gdown is unavailable, download the folder manually or load a local .pth file.
 # Download from: https://drive.google.com/drive/folders/1VhPebc_mMxWKccrv7pdQLTvXYVcLYpsf
 model = FoundationStereoModel.from_pretrained(
     "/path/to/11-33-40/model_best_bp2.pth",
@@ -272,7 +282,7 @@ refinement.
 **Paper:** [Iterative Geometry Encoding Volume for Stereo Matching](https://arxiv.org/abs/2303.06615)
 **Authors:** Gangwei Xu, Xianqi Wang, Xiaohuan Ding, Xin Yang (CVPR 2023)
 
-> Registered variants auto-download from Hugging Face Hub repo `shriarul5273/IGEV-Stereo`.
+> The stereo path is vendored into a single module. No runtime checkout of the original IGEV repository is required. Registered variants auto-download from Hugging Face Hub repo `shriarul5273/IGEV-Stereo`.
 
 ### Variants
 
@@ -326,7 +336,7 @@ refinement.
 **Paper:** [IGEV++: Iterative Multi-range Geometry Encoding Volumes for Stereo Matching](https://arxiv.org/abs/2409.00638)
 **Authors:** Gangwei Xu, Xianqi Wang, Zhaoxing Zhang, Junda Cheng, Chunyuan Liao, Xin Yang (TPAMI 2025)
 
-> **Requires:** `third-party/IGEV-plusplus/` present in the repository. Registered variants auto-download from Hugging Face Hub repo `shriarul5273/IGEV-plusplus-Stereo`.
+> The stereo path is vendored into a single module. No runtime checkout of `third-party/IGEV-plusplus/` is required. Registered variants auto-download from Hugging Face Hub repo `shriarul5273/IGEV-plusplus-Stereo`.
 
 ### Variants
 
@@ -458,6 +468,73 @@ model = S2M2Model.from_pretrained(
 > compatible with `SmoothL1StereoLoss` and `DisparityLoss`. Occlusion and
 > confidence outputs are available in the vendored `_S2M2` class but discarded
 > at the wrapper level.
+
+---
+
+## UniMatch
+
+Stereo-only disparity path vendored from `third-party/unimatch`. Uses a CNN encoder, multi-scale feature transformer, self-attention propagation, and regression refinement.
+
+### Variants
+
+| Variant ID | `variant` key | Checkpoint file | Notes |
+|---|---|---|---|
+| `unimatch` | `mixdata` | `gmstereo-scale2-regrefine3-resumeflowthings-mixdata-train320x640-ft640x960-e4e291fd.pth` | Default alias |
+| `unimatch-mixdata` | `mixdata` | `gmstereo-scale2-regrefine3-resumeflowthings-mixdata-train320x640-ft640x960-e4e291fd.pth` | Alias of `unimatch` |
+| `unimatch-sceneflow` | `sceneflow` | `gmstereo-scale2-regrefine3-resumeflowthings-sceneflow-f724fee6.pth` | Scene Flow checkpoint |
+| `unimatch-kitti15` | `kitti15` | `gmstereo-scale2-regrefine3-resumeflowthings-kitti15-04487ebf.pth` | KITTI 2015 fine-tuned |
+| `unimatch-middlebury` | `middlebury` | `gmstereo-scale2-regrefine3-resumeflowthings-middleburyfthighres-a82bec03.pth` | Middlebury fine-tuned |
+
+Registered variants download with `torch.hub.load_state_dict_from_url()` and are cached under `~/.cache/stereo_matching/unimatch/`.
+
+### Configuration (`UniMatchConfig`)
+
+```python
+from stereo_matching.models.unimatch import UniMatchConfig
+
+config = UniMatchConfig(
+    variant="mixdata",            # "mixdata", "sceneflow", "kitti15", or "middlebury"
+    feature_channels=128,
+    upsample_factor=4,
+    num_scales=2,
+    num_head=1,
+    ffn_dim_expansion=4,
+    num_transformer_layers=6,
+    attn_splits_list=[2, 8],
+    corr_radius_list=[-1, 4],
+    prop_radius_list=[-1, 1],
+    num_reg_refine=3,
+    padding_factor=32,
+)
+```
+
+### Loading
+
+```python
+from stereo_matching.models.unimatch import UniMatchModel
+
+# From the registered release URLs
+model = UniMatchModel.from_pretrained("unimatch", device="cuda")
+model = UniMatchModel.from_pretrained("unimatch-kitti15", device="cuda")
+model = UniMatchModel.from_pretrained("unimatch-middlebury", device="cuda")
+
+# From a local .pth checkpoint
+model = UniMatchModel.from_pretrained(
+    "/path/to/gmstereo-scale2-regrefine3-resumeflowthings-mixdata-train320x640-ft640x960-e4e291fd.pth",
+    variant="mixdata",
+    device="cuda",
+)
+```
+
+### Inference / CLI / Training support
+
+| Model | Inference | CLI | Trainable |
+|---|---|---|---|
+| `unimatch` | ✓ | ✓ | ✓ |
+| `unimatch-mixdata` | ✓ | ✓ | ✓ |
+| `unimatch-sceneflow` | ✓ | ✓ | ✓ |
+| `unimatch-kitti15` | ✓ | ✓ | ✓ |
+| `unimatch-middlebury` | ✓ | ✓ | ✓ |
 
 ---
 

@@ -38,13 +38,13 @@ stereo-matching predict \
 | `--model ID` | Registered variant ID — mutually exclusive with `--checkpoint` |
 | `--checkpoint PATH` | Path to a local `.pth` file — mutually exclusive with `--model` |
 
-**Supported model IDs:** `raft-stereo`, `raft-stereo-middlebury`, `raft-stereo-eth3d`, `raft-stereo-realtime`, `crestereo`
+**Supported model IDs:** any registered variant ID from `MODEL_REGISTRY`. Run `stereo-matching list-models` or see [models.md](models.md) for the current registry.
 
 **Optional arguments:**
 
 | Argument | Default | Description |
 |---|---|---|
-| `--variant NAME` | `standard` | Variant name when using `--checkpoint` |
+| `--variant NAME` | `None` | Family-specific variant hint when using `--checkpoint` |
 | `--iters N` | model default | Override recurrent iterations |
 | `--device DEVICE` | auto | `cuda`, `cpu`, or `mps` |
 | `--focal-length F` | — | Focal length in pixels (enables depth output) |
@@ -61,6 +61,10 @@ stereo-matching predict \
 | `disparity_color.png` | Colorized visualization (uint8 RGB) |
 | `side_by_side.png` | Left image next to colored disparity |
 | `depth.npy` | Float32 NumPy depth map in metres (only if `--focal-length` + `--baseline` given) |
+
+`--variant` values are model-specific. Common examples are `standard`, `middlebury`, `eth3d`, `sceneflow`, `S`, and `mixdata`.
+
+> **Note:** local checkpoint loading depends on the underlying model family. For example, the current `AANetModel` loader resolves registered model IDs only and does not accept an arbitrary local `.pth` path.
 
 **Examples:**
 
@@ -98,18 +102,44 @@ Example output:
 
 ```
 Registered stereo model variants:
-  raft-stereo
-  raft-stereo-middlebury
-  raft-stereo-eth3d
-  raft-stereo-realtime
+  aanet
+  aanet-kitti2012
+  aanet-sceneflow
   crestereo
+  foundation-stereo
+  foundation-stereo-large
+  igev-plusplus
+  igev-plusplus-eth3d
+  igev-plusplus-kitti2012
+  igev-plusplus-kitti2015
+  igev-plusplus-middlebury
+  igev-plusplus-sceneflow
+  igev-stereo
+  igev-stereo-eth3d
+  igev-stereo-kitti2012
+  igev-stereo-kitti2015
+  igev-stereo-middlebury
+  igev-stereo-sceneflow
+  raft-stereo
+  raft-stereo-eth3d
+  raft-stereo-middlebury
+  raft-stereo-realtime
+  s2m2
+  s2m2-l
+  s2m2-m
+  s2m2-xl
+  unimatch
+  unimatch-kitti15
+  unimatch-middlebury
+  unimatch-mixdata
+  unimatch-sceneflow
 ```
 
 ---
 
 ### `info`
 
-Show configuration details for a model variant.
+Show configuration details for a registered model variant or a local checkpoint.
 
 ```bash
 stereo-matching info --model VARIANT_ID
