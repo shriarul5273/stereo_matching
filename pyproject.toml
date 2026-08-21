@@ -26,7 +26,7 @@ classifiers = [
 ]
 keywords = ["stereo-matching", "disparity-estimation", "depth-estimation", "computer-vision", "deep-learning", "pytorch"]
 dependencies = [
-    "torch>=2.9.0",
+    "torch>=2.13.0",
     "torchvision>=0.15",
     "Pillow>=9.0",
     "numpy>=1.24",
