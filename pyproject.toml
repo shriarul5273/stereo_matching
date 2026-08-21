@@ -33,7 +33,7 @@ dependencies = [
     "matplotlib>=3.6",
     "opencv-python>=4.8",
     "huggingface-hub>=0.16",
-    "einops>=0.6",
+    "einops>=0.8.2",
     "timm>=0.9.1",
     "tqdm",
     "open3d"
