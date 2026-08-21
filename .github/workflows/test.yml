@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Ruff
+        run: python -m pip install ruff
+
+      - name: Run Ruff
+        run: ruff check .
+
+  typecheck:
+    name: typecheck (mypy, advisory)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install mypy
+        run: python -m pip install mypy
+
+      - name: Run mypy
+        continue-on-error: true
+        run: python -m mypy src/stereo_matching
+
+  build:
+    name: build (smoke test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install build tooling
+        run: python -m pip install build twine
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Check package metadata
+        run: twine check dist/*
+
+  test:
+    name: test (py${{ matrix.python-version }}, torch==${{ matrix.torch-version || 'latest' }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+        torch-version: ["2.9.0", ""]
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install torch (CPU wheel)
+        run: |
+          python -m pip install --upgrade pip
+          if [ -z "${{ matrix.torch-version }}" ]; then
+            python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          else
+            python -m pip install "torch==${{ matrix.torch-version }}" torchvision --index-url https://download.pytorch.org/whl/cpu
+          fi
+
+      - name: Install package and test dependencies
+        run: |
+          python -m pip install -e ".[dev]" --no-deps
+          python -m pip install pytest pytest-cov Pillow numpy matplotlib \
+            opencv-python-headless huggingface-hub einops timm tqdm \
+            onnx onnxruntime
+
+      - name: Show installed packages
+        run: python -m pip list
+
+      - name: Run fast tests
+        run: python -m pytest -v -rsx tests -m "not slow"

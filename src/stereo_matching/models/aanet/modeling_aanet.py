@@ -27,7 +27,6 @@ Original code:  https://github.com/haofeixu/aanet
 
 import logging
 import math
-from typing import List
 
 import torch
 import torch.nn as nn
@@ -35,7 +34,7 @@ import torch.nn.functional as F
 from torch.nn.modules.utils import _pair
 
 from ...modeling_utils import BaseStereoModel
-from .configuration_aanet import AANetConfig, _AANET_VARIANT_MAP
+from .configuration_aanet import AANetConfig
 
 logger = logging.getLogger(__name__)
 

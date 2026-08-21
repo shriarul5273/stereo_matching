@@ -244,7 +244,6 @@ class _CRE_BasicEncoder(nn.Module):
     def forward(self, x):
         is_list = isinstance(x, (tuple, list))
         if is_list:
-            batch_dim = x[0].shape[0]
             x = torch.cat(x, dim=0)
 
         x = self.conv1(x)
@@ -709,7 +708,6 @@ class _CREStereoNet(nn.Module):
         image2 = image2.contiguous()
 
         hdim = self.hidden_dim
-        cdim = self.context_dim
 
         with autocast(enabled=self.mixed_precision):
             fmap1, fmap2 = self.fnet([image1, image2])

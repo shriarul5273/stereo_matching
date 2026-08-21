@@ -4,6 +4,12 @@ All model families, registered variant IDs, configuration options, and citations
 
 The top-level package currently registers 8 model families and 31 variant IDs from `src/stereo_matching/models/`.
 
+All wrappers support inference through Auto Classes, `pipeline()`, and CLI
+prediction. “Training forward” below means the wrapper can be placed in
+training mode and produces tensors suitable for a custom PyTorch loop; the
+package does not currently include trainer or loss modules. See
+[training.md](training.md) for the exact scope.
+
 | Family | Registered IDs | Weight source | Local `.pth` loading |
 |---|---|---|---|
 | RAFT-Stereo | 4 IDs (`raft-stereo*`) | Hugging Face model repo | ✓ |
@@ -75,9 +81,9 @@ model = RaftStereoModel.from_pretrained("raft-stereo", for_training=True)
 model.train()
 ```
 
-### Inference / CLI / Training support
+### Wrapper support
 
-| Model | Inference | CLI | Trainable |
+| Model | Inference | CLI prediction | Training forward |
 |---|---|---|---|
 | `raft-stereo` | ✓ | ✓ | ✓ |
 | `raft-stereo-middlebury` | ✓ | ✓ | ✓ |
@@ -128,9 +134,9 @@ model = CREStereoModel.from_pretrained(
 )
 ```
 
-### Inference / CLI / Training support
+### Wrapper support
 
-| Model | Inference | CLI | Trainable |
+| Model | Inference | CLI prediction | Training forward |
 |---|---|---|---|
 | `crestereo` | ✓ | ✓ | ✓ |
 
@@ -188,9 +194,9 @@ model = AANetModel.from_pretrained("aanet-kitti2012", device="cuda")
 model = AANetModel.from_pretrained("aanet-sceneflow", device="cuda")
 ```
 
-### Inference / CLI / Training support
+### Wrapper support
 
-| Model | Inference | CLI | Trainable |
+| Model | Inference | CLI prediction | Training forward |
 |---|---|---|---|
 | `aanet` | ✓ | ✓ | ✓ |
 | `aanet-kitti2012` | ✓ | ✓ | ✓ |
@@ -209,7 +215,8 @@ Zero-shot stereo matching using a foundation model backbone (DINOv2 / DepthAnyth
 **Paper:** [FoundationStereo: Zero-Shot Stereo Matching](https://arxiv.org/abs/2501.09898)
 **Authors:** Bowen Wen, Matthew Trepte, Joseph Aribido, Jan Kautz, Orazio Gallo, Stan Birchfield (NVIDIA, 2025)
 
-> The architecture is vendored into a single module. No runtime checkout of `third-party/FoundationStereo/` is required; only the original license file is kept there.
+> The architecture is vendored into a single module. No runtime checkout of
+> the original FoundationStereo repository is required.
 
 ### Variants
 
@@ -264,9 +271,9 @@ model = FoundationStereoModel.from_pretrained(
 )
 ```
 
-### Inference / CLI / Training support
+### Wrapper support
 
-| Model | Inference | CLI | Trainable |
+| Model | Inference | CLI prediction | Training forward |
 |---|---|---|---|
 | `foundation-stereo` | ✓ | ✓ | ✓ |
 | `foundation-stereo-large` | ✓ | ✓ | ✓ |
@@ -313,9 +320,9 @@ model = IGEVStereoModel.from_pretrained(
 )
 ```
 
-### Inference / CLI / Training support
+### Wrapper support
 
-| Model | Inference | CLI | Trainable |
+| Model | Inference | CLI prediction | Training forward |
 |---|---|---|---|
 | `igev-stereo` | ✓ | ✓ | ✓ |
 | `igev-stereo-sceneflow` | ✓ | ✓ | ✓ |
@@ -336,7 +343,9 @@ refinement.
 **Paper:** [IGEV++: Iterative Multi-range Geometry Encoding Volumes for Stereo Matching](https://arxiv.org/abs/2409.00638)
 **Authors:** Gangwei Xu, Xianqi Wang, Zhaoxing Zhang, Junda Cheng, Chunyuan Liao, Xin Yang (TPAMI 2025)
 
-> The stereo path is vendored into a single module. No runtime checkout of `third-party/IGEV-plusplus/` is required. Registered variants auto-download from Hugging Face Hub repo `shriarul5273/IGEV-plusplus-Stereo`.
+> The stereo path is vendored into a single module. No runtime checkout of the
+> original IGEV++ repository is required. Registered variants auto-download
+> from Hugging Face Hub repo `shriarul5273/IGEV-plusplus-Stereo`.
 
 ### Variants
 
@@ -388,9 +397,9 @@ model = IGEVPlusPlusModel.from_pretrained(
 )
 ```
 
-### Inference / CLI / Training support
+### Wrapper support
 
-| Model | Inference | CLI | Trainable |
+| Model | Inference | CLI prediction | Training forward |
 |---|---|---|---|
 | `igev-plusplus` | ✓ | ✓ | ✓ |
 | `igev-plusplus-sceneflow` | ✓ | ✓ | ✓ |
@@ -455,9 +464,9 @@ model = S2M2Model.from_pretrained(
 )
 ```
 
-### Inference / CLI / Training support
+### Wrapper support
 
-| Model | Inference | CLI | Trainable |
+| Model | Inference | CLI prediction | Training forward |
 |---|---|---|---|
 | `s2m2` | ✓ | ✓ | ✓ |
 | `s2m2-m` | ✓ | ✓ | ✓ |
@@ -465,15 +474,21 @@ model = S2M2Model.from_pretrained(
 | `s2m2-xl` | ✓ | ✓ | ✓ |
 
 > S2M2's `forward()` returns a single-element `List[Tensor]` during training,
-> compatible with `SmoothL1StereoLoss` and `DisparityLoss`. Occlusion and
-> confidence outputs are available in the vendored `_S2M2` class but discarded
-> at the wrapper level.
+> which can be consumed by a custom loss. Occlusion and confidence outputs are
+> available in the vendored `_S2M2` class but discarded at the wrapper level.
 
 ---
 
 ## UniMatch
 
-Stereo-only disparity path vendored from `third-party/unimatch`. Uses a CNN encoder, multi-scale feature transformer, self-attention propagation, and regression refinement.
+Stereo-only disparity path vendored from the upstream UniMatch implementation.
+It uses a CNN encoder, multi-scale feature transformer, self-attention
+propagation, and regression refinement; no runtime source checkout is required.
+
+**Paper:** [Unifying Flow, Stereo and Depth Estimation](https://arxiv.org/abs/2211.05783)
+
+**Authors:** Haofei Xu, Jing Zhang, Jianfei Cai, Hamid Rezatofighi, Fisher Yu,
+Dacheng Tao, Andreas Geiger (CVPR 2023)
 
 ### Variants
 
@@ -526,9 +541,9 @@ model = UniMatchModel.from_pretrained(
 )
 ```
 
-### Inference / CLI / Training support
+### Wrapper support
 
-| Model | Inference | CLI | Trainable |
+| Model | Inference | CLI prediction | Training forward |
 |---|---|---|---|
 | `unimatch` | ✓ | ✓ | ✓ |
 | `unimatch-mixdata` | ✓ | ✓ | ✓ |
@@ -587,5 +602,19 @@ See [adding_a_model.md](adding_a_model.md) for the step-by-step guide.
   author    = {Xu, Haofei and Zhang, Juyong},
   booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
   year      = {2020}
+}
+
+@inproceedings{xu2023igev,
+  title     = {Iterative Geometry Encoding Volume for Stereo Matching},
+  author    = {Xu, Gangwei and Wang, Xianqi and Ding, Xiaohuan and Yang, Xin},
+  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2023}
+}
+
+@inproceedings{xu2023unimatch,
+  title     = {Unifying Flow, Stereo and Depth Estimation},
+  author    = {Xu, Haofei and Zhang, Jing and Cai, Jianfei and Rezatofighi, Hamid and Yu, Fisher and Tao, Dacheng and Geiger, Andreas},
+  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2023}
 }
 ```

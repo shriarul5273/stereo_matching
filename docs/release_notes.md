@@ -1,5 +1,43 @@
 # Release Notes
 
+## Unreleased
+
+## v0.2.0 - 2026-08-21
+
+### Project quality
+
+- Added pull-request CI for Ruff, advisory mypy, package builds, and the fast
+  test matrix on Python 3.10–3.12 with PyTorch 2.9 and latest.
+- Added weekly pretrained inference checks for all 31 registered variants.
+- Added CodeQL scanning, Dependabot configuration, contributor guidance, and a
+  CI status badge.
+- Added offline tests for package metadata, configuration serialization,
+  registry resolution, CLI behavior, and processor behavior.
+- Synchronized package metadata with the declared PyTorch floor: Python 3.10+
+  is now required.
+
+### Export and quantization
+
+- Added in-place FP16 and BF16 model casting with pipeline input dtype handling.
+- Added CPU dynamic INT8 quantization for linear layers while preserving the
+  caller’s original model.
+- Added two-input ONNX export with dynamic batch/spatial options and numerical
+  verification through ONNX Runtime.
+- Added export-first ONNX INT8/UINT8 dynamic quantization with verification,
+  per-channel, and reduced-range options.
+- Added `export` and `quantize-onnx` CLI commands, an `[export]` dependency
+  extra, public convenience functions, and model methods.
+
+### Documentation
+
+- Audited every Markdown page against the source tree.
+- Marked dataset loaders, packaged evaluation, trainer classes, and built-in
+  losses as future/reserved APIs rather than currently importable features.
+- Replaced stale dataset, training, and evaluation examples with accurate
+  application-owned integration guidance.
+- Corrected CLI option placement, demo behavior, dependency/extras guidance,
+  processor normalization, batching constraints, and model support wording.
+
 ## v0.1.0
 
 Initial release of `stereo_matching`.
@@ -8,7 +46,7 @@ Initial release of `stereo_matching`.
 
 **Core library:**
 - `BaseStereoConfig` — base configuration class with stereo-specific fields (`input_size`, `max_disparity`, `num_iters`, `mixed_precision`, `is_metric`)
-- `BaseStereoModel` — base model class with `forward(left, right)`, `predict()`, `from_pretrained()`, `freeze_backbone()`, `unfreeze_backbone()`, `trainable_parameters()`
+- `BaseStereoModel` — base model class with `forward(left, right)`, `predict()`, `from_pretrained()`, backbone freezing, and parameter-group helpers
 - `StereoProcessor` — preprocessing (resize-to-height, ImageNet normalization) and postprocessing (nearest-neighbor upsample, scale correction, colorization, metric depth)
 - `StereoOutput` — dataclass with `disparity`, `depth`, `colored_disparity`, `metadata`
 - `ModelRegistry` — singleton registry for model families and variants
@@ -39,15 +77,15 @@ Initial release of `stereo_matching`.
 - `stereo-matching predict` — single-pair inference with output file saving
 - `stereo-matching list-models` — list all registered variants
 - `stereo-matching info` — show model configuration
-- `stereo-matching evaluate` — benchmark on standard datasets
+- `stereo-matching evaluate` — reserved parser that reports the missing evaluation module
 
 **Examples:**
-- `examples/demo.py` — runs all registered models on a stereo pair, saves colored disparity maps to `examples/output/<model>_disp.png`
+- `examples/demo.py` — runs the variants selected in its `MODELS` list on a stereo pair and saves colored disparity maps to `examples/output/<model>_disp.png`
 
 ### Design decisions
 
 - Lazy torch import: `import stereo_matching` does not import PyTorch
-- Normalization pipeline: processor outputs `[0,1]` ImageNet-normalized; model wrapper denorms to `[0,255]` before calling vendored architecture
+- Normalization pipeline: processor scales pixels to `[0,1]`, standardizes with configured mean/std, and family wrappers convert to the range expected by their vendored architecture
 - Disparity scale correction in postprocessing: `disp * (original_W / processed_W)`
 - `input_size` = target height — stereo pairs are typically wider than tall (e.g. KITTI 1242×375)
 - Nearest-neighbor upsampling preserves sharp disparity boundaries

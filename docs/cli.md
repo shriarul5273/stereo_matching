@@ -1,213 +1,208 @@
 # CLI Reference
 
-The `stereo-matching` command-line tool provides inference, model listing, and evaluation from the terminal.
-
----
-
-## Installation
-
-The CLI is installed automatically with the package:
+Installing the package creates the `stereo-matching` command:
 
 ```bash
 pip install stereo_matching
 stereo-matching --help
 ```
 
----
+The implemented commands are `predict`, `list-models`, `info`, `export`, and
+`quantize-onnx`. An `evaluate` parser is present as a reserved interface, but
+evaluation is not implemented in the current package.
 
-## Commands
+## Global options
 
-### `predict`
+Global options must appear before the subcommand:
 
-Run disparity estimation on a stereo image pair.
+```bash
+stereo-matching --device cuda predict --model raft-stereo \
+    --left left.png --right right.png
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `--device DEVICE` | auto | `cuda`, `cpu`, or `mps` |
+| `--quiet` | false | Suppress non-essential output for commands that support it |
+| `--verbose` | false | Reserved; currently does not change logging |
+
+## `predict`
+
+Run disparity estimation on one stereo pair:
 
 ```bash
 stereo-matching predict \
-    --left  LEFT_IMAGE \
+    --left LEFT_IMAGE \
     --right RIGHT_IMAGE \
     (--model VARIANT_ID | --checkpoint PATH) \
     [options]
 ```
 
-**Required arguments:**
-
-| Argument | Description |
-|---|---|
-| `--left PATH` | Path to left image |
-| `--right PATH` | Path to right image |
-| `--model ID` | Registered variant ID — mutually exclusive with `--checkpoint` |
-| `--checkpoint PATH` | Path to a local `.pth` file — mutually exclusive with `--model` |
-
-**Supported model IDs:** any registered variant ID from `MODEL_REGISTRY`. Run `stereo-matching list-models` or see [models.md](models.md) for the current registry.
-
-**Optional arguments:**
-
-| Argument | Default | Description |
+| Option | Default | Description |
 |---|---|---|
-| `--variant NAME` | `None` | Family-specific variant hint when using `--checkpoint` |
-| `--iters N` | model default | Override recurrent iterations |
-| `--device DEVICE` | auto | `cuda`, `cpu`, or `mps` |
-| `--focal-length F` | — | Focal length in pixels (enables depth output) |
-| `--baseline B` | — | Baseline in metres (enables depth output) |
-| `--output-dir DIR` | `./output` | Directory to save results |
+| `--left PATH` | required | Left image path |
+| `--right PATH` | required | Right image path |
+| `--model ID` | one source required | Registered variant ID |
+| `--checkpoint PATH` | one source required | Local checkpoint path; support depends on the family |
+| `--variant NAME` | none | Family-specific hint for a local checkpoint |
+| `--iters N` | model default | Override `config.num_iters` |
+| `--focal-length F` | none | Focal length in pixels; requires `--baseline` |
+| `--baseline B` | none | Baseline in metres; requires `--focal-length` |
+| `--output-dir DIR` | `./output` | Output directory |
 | `--colormap NAME` | `turbo` | Matplotlib colormap |
-| `--no-save` | — | Print stats only, do not write files |
+| `--no-save` | false | Print statistics without writing output files |
 
-**Output files** (written to `--output-dir`):
+Both calibration arguments must be supplied together. Metric depth is computed
+as `focal_length * baseline / disparity`.
 
-| File | Description |
-|---|---|
-| `disparity.png` | 16-bit PNG, value = disparity × 256 (KITTI convention) |
-| `disparity_color.png` | Colorized visualization (uint8 RGB) |
-| `side_by_side.png` | Left image next to colored disparity |
-| `depth.npy` | Float32 NumPy depth map in metres (only if `--focal-length` + `--baseline` given) |
+### Output files
 
-`--variant` values are model-specific. Common examples are `standard`, `middlebury`, `eth3d`, `sceneflow`, `S`, and `mixdata`.
+| File | Condition | Description |
+|---|---|---|
+| `disparity.png` | always unless `--no-save` | 16-bit PNG containing `round(max(disparity, 0) * 256)` |
+| `disparity_color.png` | colorization available | Colorized disparity written through OpenCV |
+| `side_by_side.png` | colorization available | Left RGB image next to colored disparity |
+| `depth.npy` | calibrated run | Float32 depth map in metres |
 
-> **Note:** local checkpoint loading depends on the underlying model family. For example, the current `AANetModel` loader resolves registered model IDs only and does not accept an arbitrary local `.pth` path.
-
-**Examples:**
+### Examples
 
 ```bash
-# HuggingFace Hub model
-stereo-matching predict --left left.png --right right.png --model raft-stereo
+# Registered checkpoint on the auto-detected device
+stereo-matching predict --model raft-stereo \
+    --left left.png --right right.png
 
-# CREStereo
-stereo-matching predict --left left.png --right right.png --model crestereo
+# Explicit device: global option comes first
+stereo-matching --device cuda predict --model igev-stereo \
+    --left left.png --right right.png --iters 16 --output-dir results/
 
-# Local checkpoint
-stereo-matching predict --left left.png --right right.png \
-    --checkpoint /path/to/raftstereo-sceneflow.pth --variant standard
-
-# With metric depth
-stereo-matching predict --left left.png --right right.png --model raft-stereo \
+# Calibrated depth
+stereo-matching predict --model raft-stereo \
+    --left left.png --right right.png \
     --focal-length 721.5 --baseline 0.54
 
-# Faster inference, custom output dir
-stereo-matching predict --left l.png --right r.png --model raft-stereo \
-    --iters 12 --output-dir results/
+# Local checkpoint for a family whose loader supports paths
+stereo-matching predict \
+    --checkpoint /path/to/raftstereo-sceneflow.pth \
+    --variant standard --left left.png --right right.png
 ```
 
----
+AANet currently resolves registered IDs only; its loader does not accept an
+arbitrary local `.pth` path. See [models.md](models.md) for per-family loading
+support.
 
-### `list-models`
+## `list-models`
 
-Print all registered model variant IDs.
+Print the 31 registered variant IDs:
 
 ```bash
 stereo-matching list-models
+stereo-matching list-models --json
 ```
 
-Example output:
+The JSON form returns a JSON array of strings and is useful for scripts.
 
-```
-Registered stereo model variants:
-  aanet
-  aanet-kitti2012
-  aanet-sceneflow
-  crestereo
-  foundation-stereo
-  foundation-stereo-large
-  igev-plusplus
-  igev-plusplus-eth3d
-  igev-plusplus-kitti2012
-  igev-plusplus-kitti2015
-  igev-plusplus-middlebury
-  igev-plusplus-sceneflow
-  igev-stereo
-  igev-stereo-eth3d
-  igev-stereo-kitti2012
-  igev-stereo-kitti2015
-  igev-stereo-middlebury
-  igev-stereo-sceneflow
-  raft-stereo
-  raft-stereo-eth3d
-  raft-stereo-middlebury
-  raft-stereo-realtime
-  s2m2
-  s2m2-l
-  s2m2-m
-  s2m2-xl
-  unimatch
-  unimatch-kitti15
-  unimatch-middlebury
-  unimatch-mixdata
-  unimatch-sceneflow
-```
+## `info`
 
----
-
-### `info`
-
-Show configuration details for a registered model variant or a local checkpoint.
-
-```bash
-stereo-matching info --model VARIANT_ID
-```
-
-Example:
+Print the resolved configuration without downloading weights when a registered
+model ID is used:
 
 ```bash
 stereo-matching info --model raft-stereo
+stereo-matching info --model raft-stereo --json
 ```
 
-Output:
+For a checkpoint path, `info` loads the model to discover its configuration:
 
-```
-Model: raft-stereo
-  model_type      : raft-stereo
-  variant         : standard
-  input_size      : 384
-  num_iters       : 32
-  corr_levels     : 4
-  corr_radius     : 4
-  n_gru_layers    : 3
-  mixed_precision : False
+```bash
+stereo-matching --device cpu info \
+    --checkpoint /path/to/model.pth --variant standard --json
 ```
 
----
+The exact fields vary by model family.
 
-### `evaluate`
+## `export`
 
-Evaluate a model on a benchmark dataset.
+Export a registered model or supported local checkpoint to a two-input ONNX
+graph:
+
+```bash
+stereo-matching --device cpu export \
+    --model raft-stereo \
+    --output raft_stereo.onnx \
+    --height 384 --width 640 --verify
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `--model ID` / `--checkpoint PATH` | one required | Model source |
+| `--variant NAME` | none | Local-checkpoint family hint |
+| `--output PATH` | required | Destination `.onnx` file |
+| `--height N` | `config.input_size` | Trace input height |
+| `--width N` | height | Trace input width |
+| `--iters N` | model default | Recurrent iterations baked into the trace |
+| `--opset N` | `17` | ONNX opset |
+| `--precision` | `fp32` | `fp32`, `fp16`, or `bf16` |
+| `--static-batch` | false | Fix batch size to one |
+| `--dynamic-spatial` | false | Mark height and width dynamic |
+| `--verify` | false | Compare ONNX Runtime CPU output with PyTorch |
+
+BF16 cannot use the standard CPU verification path. Dynamic PyTorch INT8 is
+also intentionally excluded; export FP32 first and use `quantize-onnx`. See
+[export.md](export.md).
+
+## `quantize-onnx`
+
+Quantize an already-exported floating-point ONNX graph:
+
+```bash
+stereo-matching quantize-onnx \
+    --input raft_stereo.onnx \
+    --output raft_stereo.int8.onnx \
+    --weight-type int8
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `--input PATH` | required | Floating-point source graph |
+| `--output PATH` | required | Quantized destination graph |
+| `--weight-type` | `int8` | `int8` or `uint8` |
+| `--no-verify` | false | Skip comparison with the source graph |
+| `--atol`, `--rtol` | `0.05` | Verification tolerances |
+| `--per-channel` | false | Quantize weights per output channel |
+| `--reduce-range` | false | Use reduced integer range where supported |
+
+Verification is enabled by default because dynamic quantization accuracy is
+model-dependent. See [quantization.md](quantization.md).
+
+## `evaluate` status
+
+The following interface is reserved:
 
 ```bash
 stereo-matching evaluate \
-    --model VARIANT_ID \
-    --dataset DATASET \
+    (--model VARIANT_ID | --checkpoint PATH) \
+    --dataset NAME \
     --data-root PATH \
-    [--split SPLIT] \
-    [--checkpoint PATH] \
-    [--iters N] \
-    [--batch-size N] \
-    [--device DEVICE] \
-    [--output-dir DIR]
+    [--split val] \
+    [--batch-size 1]
 ```
 
-| Argument | Default | Description |
-|---|---|---|
-| `--model ID` | required | Variant ID or `--checkpoint` |
-| `--checkpoint PATH` | — | Local checkpoint (alternative to `--model`) |
-| `--dataset NAME` | required | `sceneflow`, `kitti2015`, `kitti2012`, `middlebury`, `eth3d` |
-| `--data-root PATH` | required | Root directory of the dataset |
-| `--split SPLIT` | `val` | Dataset split: `train`, `val`, `test` |
-| `--iters N` | model default | Recurrent iterations |
-| `--batch-size N` | `1` | Evaluation batch size |
-| `--device DEVICE` | auto | Compute device |
-| `--output-dir DIR` | — | Save per-sample results (optional) |
+Running it currently exits because `stereo_matching.evaluation` is not included.
+Use the custom evaluation loop in [evaluation.md](evaluation.md) instead.
 
-**Reported metrics:** EPE, D1-all (%), bad_1px (%), bad_2px (%), bad_3px (%)
+## Demo scripts
 
-See [evaluation.md](evaluation.md) for metric definitions.
-
----
-
-## Demo script
-
-Run all registered models on a stereo pair and save colored disparity maps:
+`examples/demo.py` contains a `MODELS` list whose entries are commented out by
+default. Select the variants you want, then run:
 
 ```bash
 python examples/demo.py
 ```
 
-Results are saved to `examples/output/` as `<model_name>_disp.png`.
+Outputs are written under `examples/output/`. The comparison application has
+additional dependencies:
+
+```bash
+pip install gradio gradio_sync3dcompare
+python examples/compare_demo.py
+```

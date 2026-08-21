@@ -116,8 +116,18 @@ class StereoPipeline:
             rights.append(inp["right_values"])
             original_sizes.extend(inp["original_sizes"])
 
-        left_tensor = torch.cat(lefts, dim=0).to(self.device)
-        right_tensor = torch.cat(rights, dim=0).to(self.device)
+        model_dtype = torch.float32
+        for parameter in self.model.parameters():
+            if parameter.is_floating_point():
+                model_dtype = parameter.dtype
+                break
+
+        left_tensor = torch.cat(lefts, dim=0).to(
+            device=self.device, dtype=model_dtype
+        )
+        right_tensor = torch.cat(rights, dim=0).to(
+            device=self.device, dtype=model_dtype
+        )
 
         # Forward pass
         with torch.no_grad():

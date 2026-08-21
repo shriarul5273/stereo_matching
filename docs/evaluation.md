@@ -1,135 +1,113 @@
 # Evaluation
 
-This page describes the evaluation metrics and how to benchmark models on standard stereo datasets.
+The current package does not include a `stereo_matching.evaluation` module or
+built-in benchmark dataset loaders. The CLI exposes an `evaluate` placeholder,
+but it exits with an explanatory error until that module is implemented.
 
----
+Use the inference pipeline with your own dataset reader and metric code. This
+page defines the common metrics and the scale handling required for a correct
+evaluation.
 
 ## Metrics
 
 ### EPE — End-Point Error
 
-Average pixel-wise L1 error between predicted and ground-truth disparity over valid pixels.
+Average absolute disparity error over valid pixels:
 
-```
-EPE = mean(|pred - gt|)  over valid pixels
-```
-
-Lower is better. Unit: pixels.
-
-### D1-all — Disparity Error Rate
-
-Percentage of pixels where the disparity error exceeds both an absolute threshold and a relative threshold.
-
-```
-D1-all = % pixels where  |pred - gt| > 3px  AND  |pred - gt| / |gt| > 0.05
+```text
+EPE = mean(abs(prediction - ground_truth))
 ```
 
-Lower is better. Unit: percent. This is the primary KITTI 2015 metric.
+Lower is better; the unit is pixels.
 
-### bad_Npx — Bad Pixel Rate
+### D1 — Disparity outlier rate
 
-Percentage of pixels where the absolute disparity error exceeds N pixels.
+Percentage of valid pixels whose error exceeds both 3 pixels and 5% of the
+ground-truth magnitude:
 
+```text
+D1 = percentage(abs(error) > 3 and abs(error) / abs(ground_truth) > 0.05)
 ```
-bad_Npx = % pixels where  |pred - gt| > N
+
+Lower is better. Check the benchmark protocol for whether to report all,
+non-occluded, foreground, or background pixels.
+
+### Bad-pixel rate
+
+Percentage of valid pixels whose absolute error exceeds a selected threshold:
+
+```text
+bad_Npx = percentage(abs(error) > N)
 ```
 
-Reported for N = 1, 2, 3. Lower is better. Common for Middlebury and ETH3D benchmarks.
+Values for `N = 1`, `2`, and `3` are commonly reported.
 
----
-
-## Programmatic evaluation
+## Reference NumPy implementation
 
 ```python
-from stereo_matching.evaluation import StereoEvaluator
+import numpy as np
 
-evaluator = StereoEvaluator(metric="kitti2015")   # or "middlebury", "eth3d", "epe_only"
 
-for pred_disp, gt_disp in zip(predictions, ground_truths):
-    evaluator.update(pred_disp, gt_disp)
+def stereo_metrics(prediction, ground_truth, valid=None):
+    prediction = np.asarray(prediction, dtype=np.float32)
+    ground_truth = np.asarray(ground_truth, dtype=np.float32)
 
-metrics = evaluator.compute()
-print(metrics)
-# {
-#   "epe":     1.23,
-#   "d1_all":  4.56,
-#   "bad_1px": 12.3,
-#   "bad_2px": 6.7,
-#   "bad_3px": 4.6,
-# }
+    if prediction.shape != ground_truth.shape:
+        raise ValueError(f"shape mismatch: {prediction.shape} != {ground_truth.shape}")
+
+    if valid is None:
+        valid = np.isfinite(ground_truth) & (ground_truth > 0)
+    else:
+        valid = np.asarray(valid, dtype=bool) & np.isfinite(ground_truth)
+
+    if not valid.any():
+        raise ValueError("sample contains no valid ground-truth pixels")
+
+    error = np.abs(prediction[valid] - ground_truth[valid])
+    target = np.abs(ground_truth[valid])
+    relative = error / np.maximum(target, 1e-6)
+
+    return {
+        "epe": float(error.mean()),
+        "d1": float(((error > 3.0) & (relative > 0.05)).mean() * 100.0),
+        "bad_1px": float((error > 1.0).mean() * 100.0),
+        "bad_2px": float((error > 2.0).mean() * 100.0),
+        "bad_3px": float((error > 3.0).mean() * 100.0),
+    }
 ```
 
-### `evaluate()` convenience function
+## Evaluation loop
 
 ```python
 from stereo_matching import pipeline
-from stereo_matching.evaluation import evaluate
 
-pipe = pipeline("stereo-matching", model="raft-stereo", device="cuda")
+matcher = pipeline("stereo-matching", model="raft-stereo", device="cuda")
 
-metrics = evaluate(
-    pipe,
-    dataset="kitti2015",
-    data_root="/data/kitti/kitti2015",
-    split="val",
-    batch_size=1,
-    iters=32,
-)
+sample_metrics = []
+for left, right, ground_truth, valid_mask in dataset:
+    result = matcher(left, right, colorize=False)
+    sample_metrics.append(
+        stereo_metrics(result.disparity, ground_truth, valid_mask)
+    )
 ```
 
-### `compare()` — side-by-side comparison
+Aggregate metrics according to the benchmark protocol. Averaging per-image
+scores and computing one global pixel-weighted score are not equivalent.
 
-```python
-from stereo_matching.evaluation import compare
+## Scale and validity requirements
 
-results = compare(
-    models=["raft-stereo", "raft-stereo-middlebury"],
-    dataset="kitti2015",
-    data_root="/data/kitti/kitti2015",
-)
-# Returns a dict[model_id → metrics_dict]
-```
+- `StereoProcessor.postprocess()` returns disparity at the original left-image
+  resolution and restores horizontal pixel scale.
+- Compare against ground truth in the same resolution and pixel units.
+- Use the official validity and occlusion masks for the dataset.
+- Do not include colorized disparity or metric depth in disparity metrics.
+- When padding or cropping inputs externally, undo that transform before
+  comparison.
 
----
+## CLI status
 
-## CLI evaluation
+`stereo-matching evaluate --help` documents the reserved command shape. Running
+the command currently reports that `stereo_matching.evaluation` is missing. Do
+not build automation around this placeholder yet.
 
-```bash
-stereo-matching evaluate \
-    --model raft-stereo \
-    --dataset kitti2015 \
-    --data-root /data/kitti/kitti2015 \
-    --split val
-```
-
-See [cli.md](cli.md) for full argument reference.
-
----
-
-## Per-sample inspection
-
-Pass `--output-dir` to the CLI (or `output_dir=` to `evaluate()`) to write per-sample disparity images alongside the error maps.
-
-```bash
-stereo-matching evaluate \
-    --model raft-stereo \
-    --dataset kitti2015 \
-    --data-root /data/kitti/kitti2015 \
-    --output-dir eval_out/
-```
-
-Written files per sample:
-
-| File | Description |
-|---|---|
-| `NNNN_pred.png` | Colored predicted disparity |
-| `NNNN_error.png` | Error map (red = large error) |
-| `NNNN_gt.png` | Colored ground-truth disparity |
-
----
-
-## Metric notes
-
-- **Valid pixels only:** All metrics exclude pixels where `gt_disp ≤ 0`.
-- **Occluded regions:** By convention, KITTI reports metrics on all non-occluded pixels; Middlebury and ETH3D report separately for occluded and all pixels.
-- **Scale:** Disparity predicted by the model is in pixels. Ensure preprocessing does not change the scale before computing metrics (`StereoProcessor.postprocess` applies the scale correction automatically).
+Dataset integration guidance is available in [data.md](data.md).

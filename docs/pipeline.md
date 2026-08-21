@@ -1,6 +1,8 @@
 # Pipeline API
 
-The `pipeline()` factory provides a one-line inference interface for all stereo models.
+The `pipeline()` factory provides a one-line inference interface for all
+registered stereo models. It downloads weights on first use when the selected
+family uses a remote checkpoint source.
 
 ---
 
@@ -40,8 +42,8 @@ results = pipe(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `left_images` | `str`, `PIL.Image`, or `list` | required | Left image(s) |
-| `right_images` | `str`, `PIL.Image`, or `list` | required | Right image(s) |
+| `left_images` | path `str`, `PIL.Image`, `np.ndarray`, or `list` | required | Left image(s) |
+| `right_images` | path `str`, `PIL.Image`, `np.ndarray`, or `list` | required | Right image(s) |
 | `batch_size` | `int` | `1` | GPU batch size |
 | `colorize` | `bool` | `True` | Produce `colored_disparity` in output |
 | `colormap` | `str` | `"turbo"` | Matplotlib colormap name |
@@ -49,6 +51,11 @@ results = pipe(
 | `baseline` | `float` or `None` | `None` | Camera baseline in metres |
 
 Returns a single `StereoOutput` (single pair) or `list[StereoOutput]` (batch).
+
+For batched calls, pass left and right lists of the same length. All pairs in
+one internal batch must preprocess to the same spatial shape; because aspect
+ratio is preserved, bucket or pad differently shaped inputs before using
+`batch_size > 1`.
 
 ---
 
@@ -64,8 +71,10 @@ class StereoOutput:
 ```
 
 - `disparity` is always returned. Units are pixels.
-- `depth` is returned when both `focal_length` and `baseline` are provided. Computed as `(focal_length * baseline) / disparity`.
+- `depth` is returned when both `focal_length` and `baseline` are provided. Computed as `(focal_length * baseline) / max(disparity, 1e-6)`.
 - `colored_disparity` is a uint8 RGB visualization using the chosen colormap. Returned when `colorize=True`.
+- `metadata` records model type, backbone, device, latency, processed input
+  resolution, maximum raw disparity, and calibration values.
 
 ---
 
@@ -103,13 +112,18 @@ result = processor.postprocess(
 - Width is adjusted to preserve aspect ratio.
 - Both dimensions are rounded down to the nearest multiple of 8.
 - Both images in a pair are resized to the same spatial size.
-- Pixel values are normalized with ImageNet mean/std to `[0, 1]`.
+- Pixel values are first scaled to `[0, 1]`, then standardized with the
+  configured mean and standard deviation. The resulting tensor is not bounded
+  to `[0, 1]`.
 
 **Postprocessing details:**
 - Disparity is upsampled (nearest-neighbor) back to original resolution.
 - A scale correction `disp * (original_W / processed_W)` is applied to restore pixel units.
 - Colorization uses the 95th percentile as the display maximum (suppresses outliers).
 - Metric depth: `depth = (focal_length * baseline) / max(disparity, 1e-6)`.
+
+Only the left image’s original size is stored for output restoration. Supply a
+rectified pair with matching dimensions when pixel-aligned output is required.
 
 ---
 
@@ -142,6 +156,25 @@ results = pipe(lefts, rights, batch_size=2)
 for r in results:
     print(r.disparity.shape)
 ```
+
+The three pairs above should share an aspect ratio or otherwise preprocess to a
+common width.
+
+### Reduced precision
+
+`StereoPipeline` casts processed image tensors to the dtype of the model’s first
+floating parameter. This allows FP16 and BF16 models created with
+`model.quantize(...)` to use the normal pipeline interface:
+
+```python
+model = AutoStereoModel.from_pretrained("raft-stereo", device="cuda")
+model.quantize("fp16")
+processor = AutoProcessor.from_pretrained("raft-stereo")
+pipe = StereoPipeline(model, processor, device="cuda")
+```
+
+Dynamic INT8 returns a new CPU model, so pass that returned object into a CPU
+pipeline. See [quantization.md](quantization.md).
 
 ### With metric depth
 

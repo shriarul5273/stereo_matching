@@ -4,18 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stereo_matching"
-version = "0.1.0"
+version = "0.2.0"
 authors = [
     { name = "shriarul5273" },
 ]
-description = "A Transformers-style Python library for stereo depth estimation — inference, evaluation, and fine-tuning"
+description = "A unified Python library for stereo inference, visualization, ONNX export, and quantization"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -45,6 +44,22 @@ Homepage = "https://github.com/shriarul5273/stereo_matching"
 Repository = "https://github.com/shriarul5273/stereo_matching"
 Issues = "https://github.com/shriarul5273/stereo_matching/issues"
 
+[project.optional-dependencies]
+dev = [
+    "build",
+    "twine",
+    "pytest>=7.0",
+    "pytest-cov",
+    "onnx>=1.14",
+    "onnxruntime>=1.20",
+    "ruff",
+    "mypy>=1.10",
+]
+export = [
+    "onnx>=1.14",
+    "onnxruntime>=1.20",
+]
+
 [project.scripts]
 stereo-matching = "stereo_matching.cli:main"
 
@@ -53,3 +68,23 @@ license-files = ["LICENSE"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: network-dependent pretrained-model tests, excluded by default (run with -m slow)",
+]
+
+[tool.ruff.lint]
+# Keep Ruff's original default rule set explicit. New Ruff releases can add
+# implicit rules, which would make unchanged code start failing CI.
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# Model packages self-register when imported, so these imports are deliberate.
+"src/stereo_matching/__init__.py" = ["F401"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+# Type checking is initially advisory in CI while the existing annotation
+# backlog is reduced. New code should still aim to pass this configuration.

@@ -88,7 +88,7 @@ import torch
 import torch.nn as nn
 
 from ...modeling_utils import BaseStereoModel
-from .configuration_<name> import MyModelConfig, _MY_MODEL_VARIANT_MAP
+from .configuration_my_model import MyModelConfig, _MY_MODEL_VARIANT_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ class MyModel(BaseStereoModel):
         self.net = _MyModelNet(config)
 
     def forward(self, left: torch.Tensor, right: torch.Tensor):
-        # Denormalize [0,1] ImageNet-norm → [0,255] for vendored net
+        # Reverse ImageNet standardization and convert to [0,255] for this net
         mean = torch.tensor(self.config.mean, device=left.device, dtype=left.dtype).view(1,3,1,1)
         std  = torch.tensor(self.config.std,  device=left.device, dtype=left.dtype).view(1,3,1,1)
         left_255  = (left  * std + mean) * 255.0
@@ -185,8 +185,10 @@ class MyModel(BaseStereoModel):
 ```
 
 **Key rules:**
-- `forward()` always receives `[0, 1]` ImageNet-normalized tensors from the processor.
-- The wrapper denorms to `[0, 255]` before calling the vendored net.
+- `forward()` receives tensors standardized with the processor's configured
+  mean and standard deviation.
+- Convert back to the range expected by the upstream architecture before
+  calling the vendored network; many existing families expect `[0, 255]`.
 - Training mode returns `List[Tensor(B,H,W)]`; inference mode returns `Tensor(B,H,W)`.
 - Prefix all internal classes to avoid name collisions (e.g. `_MyModel_ResidualBlock`).
 
@@ -197,12 +199,12 @@ class MyModel(BaseStereoModel):
 **File:** `src/stereo_matching/models/<name>/__init__.py`
 
 ```python
-from .configuration_<name> import MyModelConfig, _MY_MODEL_VARIANT_MAP
+from .configuration_my_model import MyModelConfig, _MY_MODEL_VARIANT_MAP
 from ...registry import MODEL_REGISTRY
 
 
 def _load_model_cls():
-    from .modeling_<name> import MyModel
+    from .modeling_my_model import MyModel
     return MyModel
 
 
@@ -216,7 +218,7 @@ MODEL_REGISTRY.register(
 
 def __getattr__(name):
     if name == "MyModel":
-        from .modeling_<name> import MyModel
+        from .modeling_my_model import MyModel
         return MyModel
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -275,7 +277,15 @@ with torch.no_grad():
     out = model(inp['left_values'], inp['right_values'])
 print(out.shape)   # expect (1, H, W)
 "
+
+# 4. Project checks
+ruff check .
+pytest tests -m "not slow"
 ```
+
+Add an offline registry/configuration test for every new variant. If meaningful
+validation requires a real checkpoint download, add a `@pytest.mark.slow` case
+so it runs in the scheduled pretrained workflow instead of every pull request.
 
 ---
 
@@ -285,10 +295,12 @@ print(out.shape)   # expect (1, H, W)
 - [ ] `from_variant(variant_id)` raises `ValueError` for unknown IDs
 - [ ] Loader metadata/properties return correct values for your chosen download path
 - [ ] Internal classes are prefixed to avoid name collisions
-- [ ] `forward()` denorms `[0,1]` → `[0,255]` before calling vendored net
+- [ ] `forward()` converts standardized processor output to the range expected by the vendored net
 - [ ] Training mode returns `List[Tensor(B,H,W)]`, inference mode returns `Tensor(B,H,W)`
-- [ ] `_load_pretrained_weights` handles both local path and HF Hub download
+- [ ] `_load_pretrained_weights` documents and tests every supported source (registered ID, local path, or both)
 - [ ] `__init__.py` calls `MODEL_REGISTRY.register()` without importing torch
 - [ ] Added one-line import to `src/stereo_matching/__init__.py`
-- [ ] All 3 verification commands pass
+- [ ] Registry, load, forward, Ruff, and fast-test checks pass
+- [ ] Added fast tests and, when appropriate, a slow pretrained inference case
+- [ ] Documented whether the family supports FP16/BF16 and verified ONNX export, or recorded its limitations
 - [ ] Add variant rows to `docs/models.md` and `README.md`

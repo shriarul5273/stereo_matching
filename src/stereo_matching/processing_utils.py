@@ -144,7 +144,9 @@ class StereoProcessor:
                 mode="nearest",
             )[0, 0]
 
-            disp_np = disp_resized.cpu().numpy().astype(np.float32)
+            # NumPy has no native bfloat16 dtype. Convert reduced-precision
+            # model output to float32 before crossing the PyTorch/NumPy boundary.
+            disp_np = disp_resized.float().cpu().numpy().astype(np.float32)
             disp_np = disp_np * scale_x  # restore pixel units
 
             # Colorize

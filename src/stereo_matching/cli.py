@@ -5,6 +5,8 @@ Currently supports:
   - list-models
   - info
   - predict
+  - export
+  - quantize-onnx
   - evaluate (guarded; requires the evaluation package to exist)
 """
 
@@ -12,7 +14,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
@@ -132,12 +133,12 @@ def cmd_info(args: argparse.Namespace) -> int:
 
 
 def cmd_predict(args: argparse.Namespace) -> int:
-    from .processing_utils import StereoProcessor
-
     quiet = getattr(args, "quiet", False)
 
     if (args.focal_length is None) ^ (args.baseline is None):
         raise SystemExit("Pass both --focal-length and --baseline together, or omit both.")
+
+    from .processing_utils import StereoProcessor
 
     model = _load_model(args)
     processor = StereoProcessor(model.config)
@@ -212,6 +213,46 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export(args: argparse.Namespace) -> int:
+    from .export import export_onnx
+
+    model = _load_model(args)
+    if args.precision != "fp32":
+        from .quantization import quantize_model
+
+        model = quantize_model(model, dtype=args.precision)
+
+    output = export_onnx(
+        model,
+        args.output,
+        input_height=args.height,
+        input_width=args.width,
+        opset_version=args.opset,
+        dynamic_batch=not args.static_batch,
+        dynamic_spatial=args.dynamic_spatial,
+        verify=args.verify,
+    )
+    _print(f"Exported ONNX model to {output.resolve()}", quiet=args.quiet)
+    return 0
+
+
+def cmd_quantize_onnx(args: argparse.Namespace) -> int:
+    from .quantization import quantize_onnx
+
+    output = quantize_onnx(
+        args.input,
+        args.output,
+        weight_type=args.weight_type,
+        verify=not args.no_verify,
+        atol=args.atol,
+        rtol=args.rtol,
+        per_channel=args.per_channel,
+        reduce_range=args.reduce_range,
+    )
+    _print(f"Quantized ONNX model written to {output.resolve()}", quiet=args.quiet)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="stereo-matching",
@@ -270,6 +311,47 @@ def build_parser() -> argparse.ArgumentParser:
     eval_parser.add_argument("--batch-size", type=int, default=1, help="Evaluation batch size.")
     eval_parser.add_argument("--json", action="store_true", help="Print metrics as JSON.")
     eval_parser.set_defaults(func=cmd_evaluate)
+
+    export_parser = subparsers.add_parser(
+        "export", help="Export a registered model or local checkpoint to ONNX."
+    )
+    export_group = export_parser.add_mutually_exclusive_group(required=True)
+    export_group.add_argument("--model", help="Registered model variant ID.")
+    export_group.add_argument("--checkpoint", help="Path to a local checkpoint.")
+    export_parser.add_argument("--variant", default=None, help="Variant hint for a local checkpoint.")
+    export_parser.add_argument("--output", required=True, help="Destination .onnx path.")
+    export_parser.add_argument("--height", type=int, default=None, help="Trace input height; defaults to config.input_size.")
+    export_parser.add_argument("--width", type=int, default=None, help="Trace input width; defaults to --height.")
+    export_parser.add_argument("--iters", type=int, default=None, help="Override recurrent iteration count before export.")
+    export_parser.add_argument("--opset", type=int, default=17, help="ONNX opset version.")
+    export_parser.add_argument(
+        "--precision",
+        choices=["fp32", "fp16", "bf16"],
+        default="fp32",
+        help="Cast model before export. Reduced precision is provider-dependent.",
+    )
+    export_parser.add_argument("--static-batch", action="store_true", help="Fix the exported graph to batch size 1.")
+    export_parser.add_argument("--dynamic-spatial", action="store_true", help="Mark input/output height and width as dynamic.")
+    export_parser.add_argument("--verify", action="store_true", help="Compare ONNX output with PyTorch using ONNX Runtime CPU.")
+    export_parser.set_defaults(func=cmd_export)
+
+    quant_parser = subparsers.add_parser(
+        "quantize-onnx", help="Dynamically quantize an exported ONNX model."
+    )
+    quant_parser.add_argument("--input", required=True, help="Floating-point source .onnx path.")
+    quant_parser.add_argument("--output", required=True, help="Destination quantized .onnx path.")
+    quant_parser.add_argument(
+        "--weight-type",
+        choices=["int8", "uint8"],
+        default="int8",
+        help="ONNX Runtime weight type.",
+    )
+    quant_parser.add_argument("--no-verify", action="store_true", help="Skip numerical comparison with the source graph.")
+    quant_parser.add_argument("--atol", type=float, default=5e-2, help="Absolute verification tolerance.")
+    quant_parser.add_argument("--rtol", type=float, default=5e-2, help="Relative verification tolerance.")
+    quant_parser.add_argument("--per-channel", action="store_true", help="Use per-channel weight quantization.")
+    quant_parser.add_argument("--reduce-range", action="store_true", help="Use a reduced integer range when supported.")
+    quant_parser.set_defaults(func=cmd_quantize_onnx)
 
     return parser
 

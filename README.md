@@ -1,6 +1,7 @@
 # stereo_matching
 
 <p align="center">
+    <a href="https://github.com/shriarul5273/stereo_matching/actions/workflows/test.yml"><img alt="CI" src="https://github.com/shriarul5273/stereo_matching/actions/workflows/test.yml/badge.svg"></a>
     <a href="https://github.com/shriarul5273/stereo_matching/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/shriarul5273/stereo_matching?color=blue"></a>
     <a href="https://pypi.org/project/stereo-matching/"><img alt="PyPI" src="https://img.shields.io/pypi/v/stereo-matching"></a>
     <a href="https://pypi.org/project/stereo-matching/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/stereo-matching"></a>
@@ -9,7 +10,7 @@
 
 <h3 align="center">A unified Python library for stereo depth estimation</h3>
 
-<h3 align="center">Inference - CLI - 3D Visualization - Model Comparison</h3>
+<h3 align="center">Inference - CLI - 3D Visualization - ONNX - Quantization</h3>
 
 ---
 
@@ -17,13 +18,21 @@
 
 It is built around the practical stereo workflow: run inference with one line, inspect models from the CLI, and turn calibrated disparity into depth maps and point clouds with the same library.
 
+> **Current scope:** inference, model/config loading, preprocessing,
+> postprocessing, CLI prediction, reduced-precision inference, ONNX export and
+> quantization, and visualization are implemented. Dataset
+> loaders, a packaged evaluator, trainer classes, and built-in losses are not
+> included yet. Their documentation pages describe custom integration patterns
+> and clearly mark reserved APIs.
+
 ## Installation
 
 ```bash
 pip install stereo_matching
 ```
 
-See [docs/dependencies.md](docs/dependencies.md) for optional extras such as `stereo_matching[viz]`.
+See [docs/dependencies.md](docs/dependencies.md) for runtime, development, and
+model-specific dependencies.
 
 ---
 
@@ -79,6 +88,10 @@ Each family lives under `src/stereo_matching/models/<family>/` with a config fil
 **4. Calibrated outputs beyond disparity.**
 Pass `focal_length` and `baseline` once and the library can return metric depth, colorized disparity, and point clouds for export or interactive viewing.
 
+**5. Deployment workflows.**
+Cast PyTorch models to FP16/BF16, dynamically quantize linear layers to INT8,
+or export a two-input ONNX graph and quantize it with ONNX Runtime.
+
 ---
 
 ## Supported Models
@@ -121,9 +134,28 @@ results = pipe(
 # CLI prediction
 stereo-matching predict --left left.png --right right.png --model raft-stereo --output-dir results/
 
-# Run the packaged demo script across registered models
+# Run the demo after selecting variants in its MODELS list
 python examples/demo.py
 ```
+
+</details>
+
+<details>
+<summary><b>Precision and ONNX</b> - FP16, BF16, INT8, export, and ONNX quantization</summary>
+
+```python
+from stereo_matching import AutoStereoModel, export_onnx, quantize_onnx
+
+model = AutoStereoModel.from_pretrained("raft-stereo", device="cuda")
+export_onnx(model, "raft_stereo.fp32.onnx", input_height=384, input_width=640)
+quantize_onnx("raft_stereo.fp32.onnx", "raft_stereo.int8.onnx")
+
+fp16_model = model.quantize("fp16")  # direct reduced-precision PyTorch inference
+```
+
+PyTorch dynamic INT8 and ONNX quantization are separate paths. See
+[docs/quantization.md](docs/quantization.md) and
+[docs/export.md](docs/export.md) before deploying reduced-precision models.
 
 </details>
 
@@ -163,7 +195,8 @@ viz.point_cloud(
 )
 ```
 
-Install `stereo_matching[viz]` for the optional `open3d` viewer path. See [docs/pipeline.md](docs/pipeline.md) for output details.
+`open3d` is currently a core dependency and is imported only when its viewer
+backend is selected. See [docs/pipeline.md](docs/pipeline.md) for output details.
 
 </details>
 
@@ -187,9 +220,28 @@ The demo runs two stereo models on the same pair and shows disparity and 3D outp
 
 - [docs/models.md](docs/models.md) - families, variants, and checkpoint sources
 - [docs/pipeline.md](docs/pipeline.md) - `pipeline()`, `StereoOutput`, and processing details
-- [docs/cli.md](docs/cli.md) - `predict`, `list-models`, and `info`
-- [docs/dependencies.md](docs/dependencies.md) - optional extras and model-specific requirements
+- [docs/export.md](docs/export.md) - two-input ONNX export and runtime inference
+- [docs/quantization.md](docs/quantization.md) - FP16, BF16, PyTorch INT8, and ONNX quantization
+- [docs/cli.md](docs/cli.md) - implemented commands and the reserved evaluation interface
+- [docs/dependencies.md](docs/dependencies.md) - runtime, development, and model-specific requirements
+- [docs/data.md](docs/data.md) - custom dataset integration; no bundled loaders yet
+- [docs/training.md](docs/training.md) - manual PyTorch training and current limitations
+- [docs/evaluation.md](docs/evaluation.md) - metrics and a custom evaluation loop
 - [docs/adding_a_model.md](docs/adding_a_model.md) - registry and package structure
+- [docs/release_notes.md](docs/release_notes.md) - released and unreleased changes
+
+## Development checks
+
+```bash
+pip install -e ".[dev]"
+ruff check .
+pytest tests -m "not slow"
+python -m build
+twine check dist/*
+```
+
+Mypy is currently advisory. Real pretrained-model inference runs in the weekly
+slow workflow; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 

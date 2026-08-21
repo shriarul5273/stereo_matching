@@ -6,7 +6,7 @@ Subclasses implement forward() with their specific network architecture.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 import torch
 import torch.nn as nn
@@ -222,6 +222,23 @@ class BaseStereoModel(nn.Module):
         logger.info(
             f"Unfroze top {k} backbone blocks. Trainable params: {self._count_trainable():,}"
         )
+
+    def quantize(self, dtype: str = "fp16") -> nn.Module:
+        """Cast or dynamically quantize this model.
+
+        FP16 and BF16 mutate and return ``self``. INT8 returns a new CPU model
+        because dynamic quantization replaces linear modules. See
+        :func:`stereo_matching.quantization.quantize_model`.
+        """
+        from .quantization import quantize_model
+
+        return quantize_model(self, dtype=dtype)
+
+    def export_onnx(self, output_path: str, **kwargs: Any):
+        """Export this two-input stereo model to ONNX."""
+        from .export import export_onnx
+
+        return export_onnx(self, output_path, **kwargs)
 
 
 def _auto_detect_device() -> str:

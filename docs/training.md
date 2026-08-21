@@ -1,169 +1,142 @@
-# Training
+# Training and Fine-Tuning
 
-This page covers fine-tuning stereo models on custom datasets.
+Model wrappers are regular PyTorch modules and can be used in a custom training
+loop. The current package does not ship `StereoTrainer`,
+`StereoTrainingArguments`, or built-in loss modules, despite those names being
+reserved by the top-level lazy API. Accessing them raises an import error until
+the corresponding modules are implemented.
 
----
+Training behavior also differs by model family. Verify the output contract and
+memory requirements of the selected wrapper before starting a long run.
 
-## Overview
-
-All models in `stereo_matching` inherit from `BaseStereoModel`, which provides:
-
-- `freeze_backbone()` / `unfreeze_backbone()` for partial fine-tuning
-- `trainable_parameters()` for optimizer setup
-- Standard `nn.Module` interface — works with any PyTorch training loop
-
----
-
-## Quick start
-
-### Manual training loop
+## Load a model in training mode
 
 ```python
-import torch
 from stereo_matching import AutoStereoModel
-from stereo_matching.processing_utils import StereoProcessor
 
-# Works with any registered model — "raft-stereo", "crestereo", etc.
 model = AutoStereoModel.from_pretrained(
     "raft-stereo",
     device="cuda",
     for_training=True,
 )
 model.train()
-
-processor = StereoProcessor(model.config)
-optimizer = torch.optim.AdamW(model.trainable_parameters(), lr=1e-4)
-
-for left_img, right_img, gt_disp in dataloader:
-    inputs = processor(left_img, right_img)
-    left_t  = inputs["left_values"].cuda()
-    right_t = inputs["right_values"].cuda()
-    gt_t    = gt_disp.cuda()
-
-    # Training mode: returns List[Tensor(B, H, W)] — one per iteration
-    predictions = model(left_t, right_t)
-
-    loss = sequence_loss(predictions, gt_t)
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
 ```
 
----
+`for_training=True` prevents `from_pretrained()` from applying the default
+`.eval()` call. It does not create an optimizer, loss function, scheduler, or
+dataset.
 
-## Loss functions
+## Minimal sequence loss
 
-### Sequence loss (`SequenceLoss`)
-
-RAFT-Stereo uses an exponentially weighted sum over all recurrent predictions, weighting later predictions more heavily. This encourages intermediate predictions to be reasonable while focusing the model on the final output.
+Recurrent wrappers commonly return a list of disparity predictions during
+training. A minimal masked sequence loss can be implemented as follows:
 
 ```python
-from stereo_matching.losses import SequenceLoss
+import torch
+import torch.nn.functional as F
 
-criterion = SequenceLoss(gamma=0.9, max_flow=700.0)
 
-# predictions: List[Tensor(B, H, W)] from model.train() forward pass
-# gt_disp:     Tensor(B, H, W) — ground-truth disparity, negative values = invalid
-loss = criterion(predictions, gt_disp)
+def sequence_l1_loss(predictions, target, valid, gamma=0.9):
+    if not isinstance(predictions, (list, tuple)):
+        predictions = [predictions]
+
+    valid = valid.bool() & torch.isfinite(target)
+    if not valid.any():
+        raise ValueError("batch contains no valid disparity pixels")
+
+    loss = target.new_zeros(())
+    count = len(predictions)
+    for index, prediction in enumerate(predictions):
+        weight = gamma ** (count - index - 1)
+        loss = loss + weight * F.l1_loss(prediction[valid], target[valid])
+    return loss
 ```
 
-**Parameters:**
+This is an example, not a reproduction of every upstream model’s training
+objective. Consult the original implementation when reproducing published
+results.
 
-| Parameter | Default | Description |
-|---|---|---|
-| `gamma` | `0.9` | Exponential weight factor (earlier iters weighted less) |
-| `max_flow` | `700.0` | Exclude pixels where `abs(gt) > max_flow` from loss |
+## Optimizer groups and backbone freezing
 
-Invalid pixels (negative disparity in ground truth) are automatically masked.
+`BaseStereoModel` provides:
 
-**Weight schedule:** for `N` predictions, weight of prediction `i` = `gamma^(N-1-i)`.
+- `freeze_backbone()` and `unfreeze_backbone()`
+- `get_parameter_groups(backbone_lr_scale=0.1)`
+- `unfreeze_top_k_backbone_layers(k)` for backbones exposing `.blocks`
 
----
-
-## Backbone freezing
+Not every architecture exposes a backbone in the same way. Family wrappers may
+override `_backbone_module()`; otherwise unsupported operations raise
+`RuntimeError`.
 
 ```python
-# Freeze the feature extractor — train only the update / correlation heads
-model.freeze_backbone()
+import torch
 
-# Inspect frozen vs trainable parameters
-for name, p in model.named_parameters():
-    print(name, "trainable:", p.requires_grad)
-
-# Unfreeze all
-model.unfreeze_backbone()
+base_lr = 1e-4
+groups = model.get_parameter_groups(backbone_lr_scale=0.1)
+optimizer = torch.optim.AdamW(
+    [
+        {"params": groups[0]["params"], "lr": base_lr},
+        {"params": groups[1]["params"], "lr": base_lr * 0.1},
+    ]
+)
 ```
 
-`freeze_backbone()` locates the backbone by inspecting `model.pretrained`, `model.encoder`, `model.backbone`, and `model.net.fnet` attributes (in order).
+The returned dictionaries contain an informational `lr_scale` field; PyTorch
+optimizers do not apply that field automatically, so set each group’s `lr`
+explicitly as shown above.
 
----
-
-## Mixed precision
+## Training step
 
 ```python
-from torch.cuda.amp import GradScaler
+model.train()
 
-model.config.mixed_precision = True   # enables autocast in forward()
-scaler = GradScaler()
+left_values = left_values.cuda(non_blocking=True)
+right_values = right_values.cuda(non_blocking=True)
+target = target.cuda(non_blocking=True)
+valid = valid.cuda(non_blocking=True)
 
-with torch.autocast("cuda"):
-    predictions = model(left_t, right_t)
-    loss = criterion(predictions, gt_disp)
+optimizer.zero_grad(set_to_none=True)
+with torch.autocast("cuda", enabled=True):
+    predictions = model(left_values, right_values)
+    loss = sequence_l1_loss(predictions, target, valid)
 
-scaler.scale(loss).backward()
-scaler.step(optimizer)
-scaler.update()
+loss.backward()
+torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+optimizer.step()
 ```
 
----
+Resize and crop ground truth consistently with the image tensors. If width is
+scaled by a factor, disparity values must be scaled by the same horizontal
+factor.
 
-## Data augmentation
+## Model-family caveats
 
-Standard augmentations for stereo matching:
+- Recurrent models can return multiple predictions in training mode.
+- S2M2 currently returns a single-element prediction list.
+- Some wrappers were primarily validated for inference; compare against the
+  upstream repository before assuming the bundled forward path reproduces its
+  complete training recipe.
+- Large variants can exceed CPU memory or GPU VRAM even with small batches.
+- `config.mixed_precision` controls family-specific internal autocast behavior;
+  an outer `torch.autocast` context is still an application decision.
+
+## Dataset and augmentation guidance
+
+The repository does not bundle dataset loaders. See [data.md](data.md) for a
+custom `Dataset` skeleton and batching constraints. Preserve epipolar geometry:
+apply geometric transforms jointly to both images and update disparity values
+when horizontally resizing.
+
+## Validation
+
+Run validation in evaluation mode and without gradients:
 
 ```python
-import torchvision.transforms.functional as TF
-import random
-
-def augment_stereo_pair(left, right, gt_disp):
-    # Random horizontal flip (must flip both images and negate disparity)
-    if random.random() < 0.5:
-        left, right = TF.hflip(right), TF.hflip(left)
-        gt_disp = -gt_disp   # disparity sign reverses on flip
-
-    # Color jitter (same params for both images to preserve stereo consistency)
-    brightness = random.uniform(0.8, 1.2)
-    contrast   = random.uniform(0.8, 1.2)
-    left  = TF.adjust_brightness(TF.adjust_contrast(left,  contrast), brightness)
-    right = TF.adjust_brightness(TF.adjust_contrast(right, contrast), brightness)
-
-    return left, right, gt_disp
+model.eval()
+with torch.no_grad():
+    prediction = model(left_values, right_values)
 ```
 
-Note: do **not** apply independent random crops or vertical flips — these break the epipolar constraint.
-
----
-
-## Datasets for training
-
-| Dataset | Use | Notes |
-|---|---|---|
-| SceneFlow (FlyingThings3D) | Pre-training | Large synthetic, ~35k pairs |
-| SceneFlow (Driving) | Pre-training | Driving synthetic |
-| SceneFlow (Monkaa) | Pre-training | Object animations |
-| KITTI 2012 | Fine-tuning | 194 training pairs with GT |
-| KITTI 2015 | Fine-tuning | 200 training pairs with GT |
-| Middlebury | Fine-tuning | High-resolution indoor scenes |
-| ETH3D | Fine-tuning | Outdoor/indoor, thin structures |
-
-See [data.md](data.md) for dataset classes and loading details.
-
----
-
-## Tips
-
-- **Batch size:** RAFT-Stereo was trained with batch size 6 on 2× A100. Start with batch size 2 on a single GPU.
-- **Iterations during training:** Use fewer iterations (e.g. `num_iters=12`) to save memory; the sequence loss still trains all recurrent weights.
-- **Learning rate:** `1e-4` with `OneCycleLR` or cosine decay works well for fine-tuning.
-- **Warm-up:** Freeze the backbone for the first few epochs, then unfreeze at a lower LR.
-- **Gradient clipping:** Clip to `max_norm=1.0` to stabilize training.
+Use the final prediction when a model returns a sequence, then restore original
+resolution and disparity scale before computing metrics. See
+[evaluation.md](evaluation.md).

@@ -1,99 +1,107 @@
 # Dependencies
 
+The authoritative dependency declarations are in `pyproject.toml`. This page
+explains why they are present and calls out model-specific tools.
+
+## Python and PyTorch support
+
+- Python 3.10 or newer is required.
+- CI runs the fast suite on Python 3.10, 3.11, and 3.12.
+- The declared PyTorch floor is 2.9.0; CI checks both 2.9.0 and the latest CPU
+  wheel available from the official PyTorch index.
+- CUDA and MPS behavior depends on the installed PyTorch build and hardware.
+
 ## Core dependencies
 
-These are installed automatically with `pip install stereo_matching`.
+These are installed by `pip install stereo_matching`:
 
-| Package | Version | Purpose |
+| Package | Declared version | Purpose |
 |---|---|---|
-| `torch` | ≥ 2.0 | Deep learning framework |
-| `torchvision` | ≥ 0.15 | Image transforms and AANet deformable convolution ops |
-| `Pillow` | ≥ 9.0 | Image I/O (`PIL.Image`) |
-| `numpy` | ≥ 1.24 | Array operations, output type |
-| `matplotlib` | ≥ 3.6 | Colormaps for disparity visualization |
-| `opencv-python` | ≥ 4.8 | Image read/write, colorspace conversion |
-| `huggingface-hub` | ≥ 0.16 | Checkpoint download for Hugging Face-backed models |
-| `einops` | ≥ 0.6 | Tensor rearrangement used by FoundationStereo |
-| `timm` | ≥ 0.9.1 | Backbones used by FoundationStereo and the IGEV families |
-| `tqdm` | any | Progress bars |
+| `torch` | `>=2.9.0` | Models and tensor operations |
+| `torchvision` | `>=0.15` | Vision operations, including AANet deformable convolution |
+| `Pillow` | `>=9.0` | Image loading and RGB conversion |
+| `numpy` | `>=1.24` | Array outputs and numerical operations |
+| `matplotlib` | `>=3.6` | Disparity colormaps and plotting fallback |
+| `opencv-python` | `>=4.8` | Image resizing, reading, and writing |
+| `huggingface-hub` | `>=0.16` | Downloads for Hub-backed checkpoints |
+| `einops` | `>=0.6` | Tensor rearrangement utility retained by the model stack |
+| `timm` | `>=0.9.1` | Backbones used by FoundationStereo and IGEV families |
+| `tqdm` | unpinned | Progress reporting in model utilities |
+| `open3d` | unpinned | Interactive point-cloud viewer |
 
----
+For headless servers, `opencv-python-headless` provides the same `cv2` API, but
+the project currently declares `opencv-python`. Adjust the environment
+deliberately if avoiding GUI libraries.
 
-## Optional dependencies
+## Development extra
 
-### `[data]` — dataset loading
-
-```bash
-pip install stereo_matching[data]
-```
-
-| Package | Purpose |
-|---|---|
-| `h5py` | HDF5 file reading for SceneFlow datasets |
-| `tqdm` | Progress bars during dataset preprocessing |
-
-### `[dev]` — development and testing
+Install all contributor tools with:
 
 ```bash
-pip install stereo_matching[dev]
+pip install -e ".[dev]"
 ```
 
-| Package | Purpose |
-|---|---|
-| `pytest` | ≥ 7.0 — test runner |
-| `pytest-cov` | Coverage reporting |
+The `dev` extra includes `pytest`, `pytest-cov`, Ruff, mypy, `build`, Twine,
+ONNX, and ONNX Runtime.
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for the commands used by CI.
 
-### Model-specific extras
+## Export extra
+
+Install ONNX export, verification, and quantization support without the other
+development tools:
+
+```bash
+pip install "stereo_matching[export]"
+```
+
+This installs `onnx>=1.14` and `onnxruntime>=1.20`. See [export.md](export.md)
+and [quantization.md](quantization.md).
+
+## Model-specific dependencies
+
+### FoundationStereo downloads
+
+Registered FoundationStereo IDs use Google Drive. Install `gdown` to enable
+automatic folder download:
 
 ```bash
 pip install gdown
 ```
 
-| Package | Purpose |
-|---|---|
-| `gdown` | Auto-download FoundationStereo weights from Google Drive |
+Without it, download the checkpoint manually and pass its local path. See
+[models.md](models.md#foundationstereo).
 
----
+### RAFT-Stereo interpolation helper
 
-## Optional CUDA extensions
-
-RAFT-Stereo supports optional CUDA correlation kernels for faster inference. These are not required and the library falls back to a pure-PyTorch implementation automatically.
-
-| Extension | Purpose | Install |
-|---|---|---|
-| `corr_sampler` | Fast CUDA 1D correlation | Build from `third-party/RAFT-Stereo/` |
-
-To build:
+`scipy` is imported lazily only by RAFT-Stereo’s optional
+`forward_interpolate()` warm-start helper:
 
 ```bash
-cd third-party/RAFT-Stereo
-python setup.py install
+pip install scipy
 ```
 
-The library detects the extension at import time and uses it if available.
+Ordinary inference does not call that helper.
 
----
+### Optional RAFT correlation extensions
 
-## Python version support
+RAFT-Stereo probes for importable `corr_sampler` and `alt_cuda_corr` extension
+modules and falls back to the pure-PyTorch implementation when they are absent.
+Their source trees are not bundled in this repository; build them from the
+compatible upstream RAFT-Stereo source if needed.
 
-Python 3.9, 3.10, 3.11, 3.12.
+## Features not represented by extras
 
----
+There is currently no `[data]` extra or bundled dataset module. Dataset
+integration is application-owned; see [data.md](data.md).
 
-## Hardware
+There is also no `[viz]` extra at present: `open3d` is declared as a core
+dependency. The viewer still imports it lazily, and `backend="matplotlib"` or
+`backend="none"` can be used without opening an Open3D window.
 
-| Device | Notes |
-|---|---|
-| CUDA GPU | Recommended for training and fast inference |
-| CPU | Supported; inference is slow (seconds/pair) |
-| MPS (Apple Silicon) | Supported via `--device mps`; mixed precision may be limited |
+## CI installation behavior
 
----
-
-## Notes
-
-- `scipy` is used only inside the `forward_interpolate()` utility (an optional warm-start helper for RAFT-Stereo). It is **not** a required dependency — the function imports scipy lazily.
-- `opencv-python` and `opencv-python-headless` provide the same API. Use `opencv-python-headless` in server/docker environments where display is unavailable.
-- FoundationStereo auto-download uses optional `gdown`; otherwise load a local `.pth` checkpoint manually.
-- UniMatch checkpoints are fetched with `torch.hub.load_state_dict_from_url()` and cached under `~/.cache/stereo_matching/unimatch/`.
-- The vendored model wrappers do not require runtime checkouts of the original third-party repositories.
+The fast matrix installs CPU-only PyTorch, ONNX, and ONNX Runtime wheels and
+exercises export plus INT8 graph quantization on a small offline stereo model.
+The scheduled slow workflow installs the full project plus `scipy` and `gdown`,
+then attempts pretrained inference for every registered variant. It does not
+claim that every pretrained family is ONNX-compatible.

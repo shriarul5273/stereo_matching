@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import List, Optional
 
 import numpy as np
 import torch
@@ -24,8 +23,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 import torch.backends.cudnn as cudnn
-from einops import rearrange
-from torch import einsum
 
 from ...modeling_utils import BaseStereoModel
 from .configuration_foundation_stereo import (

@@ -26,7 +26,7 @@ License: see third-party/s2m2/LICENSE.md
 
 import logging
 import os
-from typing import Callable, List
+from typing import Callable
 
 import torch
 import torch.nn as nn
@@ -35,7 +35,7 @@ import torch.utils.checkpoint as cp
 from torch import Tensor
 
 from ...modeling_utils import BaseStereoModel
-from .configuration_s2m2 import S2M2Config, _S2M2_VARIANT_MAP
+from .configuration_s2m2 import S2M2Config
 
 logger = logging.getLogger(__name__)
 
@@ -568,7 +568,6 @@ class _S2M2_DispInit(nn.Module):
         return (attn[:, :, :-1, :-1] + log_const).exp().to(dtype)
 
     def forward(self, feature: Tensor):
-        dtype = feature.dtype
         device = feature.device
         w = feature.shape[-1]
         x_grid = torch.linspace(0, w - 1, w, device=device, dtype=feature.dtype)

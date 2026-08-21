@@ -27,6 +27,7 @@ from .models import unimatch
 def load_dataset(name, split="train", root=None, download=True, transform=None, **kwargs):
     """Load a stereo dataset by name. See :mod:`stereo_matching.data` for details."""
     from .data import load_dataset as _load
+
     return _load(name, split=split, root=root, download=download, transform=transform, **kwargs)
 
 
@@ -34,47 +35,72 @@ def __getattr__(name):
     """Defer torch-heavy imports until first use."""
     if name == "BaseStereoModel":
         from .modeling_utils import BaseStereoModel
+
         globals()["BaseStereoModel"] = BaseStereoModel
         return BaseStereoModel
     if name == "StereoProcessor":
         from .processing_utils import StereoProcessor
+
         globals()["StereoProcessor"] = StereoProcessor
         return StereoProcessor
     if name == "StereoPipeline":
         from .pipeline_utils import StereoPipeline
+
         globals()["StereoPipeline"] = StereoPipeline
         return StereoPipeline
     if name == "pipeline":
         from .pipeline_utils import pipeline
+
         globals()["pipeline"] = pipeline
         return pipeline
     # Training symbols (Phase 4)
     if name == "StereoTrainer":
         from .trainer import StereoTrainer
+
         globals()["StereoTrainer"] = StereoTrainer
         return StereoTrainer
     if name == "StereoTrainingArguments":
         from .training_args import StereoTrainingArguments
+
         globals()["StereoTrainingArguments"] = StereoTrainingArguments
         return StereoTrainingArguments
     if name == "SequenceLoss":
         from .losses import SequenceLoss
+
         globals()["SequenceLoss"] = SequenceLoss
         return SequenceLoss
     if name == "SmoothL1StereoLoss":
         from .losses import SmoothL1StereoLoss
+
         globals()["SmoothL1StereoLoss"] = SmoothL1StereoLoss
         return SmoothL1StereoLoss
     if name == "DisparityLoss":
         from .losses import DisparityLoss
+
         globals()["DisparityLoss"] = DisparityLoss
         return DisparityLoss
     # Visualization (Phase 6)
     if name == "viz":
         import importlib
+
         _viz = importlib.import_module(".viz", __name__)
         globals()["viz"] = _viz
         return _viz
+    if name == "export_onnx":
+        from .export import export_onnx
+
+        globals()["export_onnx"] = export_onnx
+        return export_onnx
+    if name == "quantize_model":
+        from .quantization import quantize_model
+
+        globals()["quantize_model"] = quantize_model
+        return quantize_model
+    if name == "quantize_onnx":
+        from .quantization import quantize_onnx
+
+        globals()["quantize_onnx"] = quantize_onnx
+        return quantize_onnx
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -97,6 +123,15 @@ __all__ = [
     "DisparityLoss",
     # Visualization
     "viz",
+    # Export and quantization
+    "export_onnx",
+    "quantize_model",
+    "quantize_onnx",
 ]
 
-__version__ = "0.1.0"
+try:
+    from importlib.metadata import PackageNotFoundError, version
+
+    __version__ = version("stereo_matching")
+except PackageNotFoundError:
+    __version__ = "0.0.0+unknown"
